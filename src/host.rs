@@ -149,6 +149,46 @@ impl Host {
         }
     }
 
+    fn service(&self, name: &str) -> crate::modules::service::Service {
+        crate::modules::service::Service {
+            inner: self.inner.clone(),
+            name: name.to_owned(),
+        }
+    }
+
+    fn file(&self, path: &str) -> crate::modules::file::File {
+        crate::modules::file::File {
+            inner: self.inner.clone(),
+            path: path.to_owned(),
+        }
+    }
+
+    #[pyo3(signature = (name = None))]
+    fn user(&self, name: Option<&str>) -> crate::modules::user::User {
+        crate::modules::user::User {
+            inner: self.inner.clone(),
+            name: name.map(|n| n.to_owned()),
+        }
+    }
+
+    fn system_info(&self) -> crate::modules::system_info::SystemInfo {
+        crate::modules::system_info::SystemInfo::new(self.inner.clone())
+    }
+
+    fn nix_package(&self, name: &str) -> crate::modules::nix_package::NixPackage {
+        crate::modules::nix_package::NixPackage {
+            inner: self.inner.clone(),
+            name: name.to_owned(),
+        }
+    }
+
+    fn nix_option(&self, path: &str) -> crate::modules::nix_option::NixOption {
+        crate::modules::nix_option::NixOption {
+            inner: self.inner.clone(),
+            path: path.to_owned(),
+        }
+    }
+
     fn __repr__(&self) -> String {
         format!("<Host {}>", self.inner.connection_string)
     }
@@ -179,6 +219,48 @@ impl AsyncHost {
                 .map_err(backend_err_to_py)?;
             Ok(CommandResult::from_raw(raw, command_display))
         })
+    }
+
+    fn service(&self, name: &str) -> crate::modules::service::AsyncService {
+        crate::modules::service::AsyncService {
+            inner: self.inner.clone(),
+            name: name.to_owned(),
+        }
+    }
+
+    fn file(&self, path: &str) -> crate::modules::file::AsyncFile {
+        crate::modules::file::AsyncFile {
+            inner: self.inner.clone(),
+            path: path.to_owned(),
+        }
+    }
+
+    #[pyo3(signature = (name = None))]
+    fn user(&self, name: Option<&str>) -> crate::modules::user::AsyncUser {
+        crate::modules::user::AsyncUser {
+            inner: self.inner.clone(),
+            name: name.map(|n| n.to_owned()),
+        }
+    }
+
+    fn system_info(&self) -> crate::modules::system_info::AsyncSystemInfo {
+        crate::modules::system_info::AsyncSystemInfo {
+            inner: self.inner.clone(),
+        }
+    }
+
+    fn nix_package(&self, name: &str) -> crate::modules::nix_package::AsyncNixPackage {
+        crate::modules::nix_package::AsyncNixPackage {
+            inner: self.inner.clone(),
+            name: name.to_owned(),
+        }
+    }
+
+    fn nix_option(&self, path: &str) -> crate::modules::nix_option::AsyncNixOption {
+        crate::modules::nix_option::AsyncNixOption {
+            inner: self.inner.clone(),
+            path: path.to_owned(),
+        }
     }
 
     fn __repr__(&self) -> String {
