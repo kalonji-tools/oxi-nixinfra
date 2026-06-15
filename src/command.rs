@@ -1,6 +1,7 @@
 use pyo3::prelude::*;
 
 /// Raw output from a subprocess execution (internal, not exported to Python).
+#[derive(Debug)]
 pub struct RawOutput {
     pub rc: i32,
     pub stdout: Vec<u8>,
