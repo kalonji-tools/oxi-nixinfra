@@ -1,0 +1,46 @@
+# Rust
+/target/
+Cargo.lock
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+*.egg
+dist/
+build/
+*.so
+*.whl
+
+# Virtual environments
+.venv/
+venv/
+
+# maturin
+*.d
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# superpowers
+docs/superpowers/
+
+# graphify
+graphify-out/cost.json
+graphify-out/cache/
+graphify-out/graph.html
+graphify-out/.graphify_python
+graphify-out/.graphify_root
+
+# devenv
+.devenv/
+.devenv.flake.nix
