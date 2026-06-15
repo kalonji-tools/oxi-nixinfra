@@ -2,6 +2,7 @@ use std::fmt;
 
 pub mod local;
 pub mod mock;
+pub mod ssh;
 
 use crate::command::RawOutput;
 
