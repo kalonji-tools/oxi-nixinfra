@@ -1,0 +1,15 @@
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "oxi-nixinfra"
+version = "0.1.0"
+description = "NixOS infrastructure testing library — oxitest plugin, Rust core"
+requires-python = ">=3.12"
+license = "MIT"
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+python-source = "python"
+module-name = "oxi_nixinfra._oxi_nixinfra"
