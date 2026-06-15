@@ -1,4 +1,36 @@
 """oxi-nixinfra: NixOS infrastructure testing library."""
-from oxi_nixinfra._oxi_nixinfra import Host, AsyncHost, CommandResult
+from oxi_nixinfra._oxi_nixinfra import (
+    Host,
+    AsyncHost,
+    CommandResult,
+    Service,
+    AsyncService,
+    File,
+    AsyncFile,
+    User,
+    AsyncUser,
+    NixPackage,
+    AsyncNixPackage,
+    NixOption,
+    AsyncNixOption,
+    SystemInfo,
+    AsyncSystemInfo,
+)
 
-__all__ = ["Host", "AsyncHost", "CommandResult"]
+__all__ = [
+    "Host",
+    "AsyncHost",
+    "CommandResult",
+    "Service",
+    "AsyncService",
+    "File",
+    "AsyncFile",
+    "User",
+    "AsyncUser",
+    "NixPackage",
+    "AsyncNixPackage",
+    "NixOption",
+    "AsyncNixOption",
+    "SystemInfo",
+    "AsyncSystemInfo",
+]
