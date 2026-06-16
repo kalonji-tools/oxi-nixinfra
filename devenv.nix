@@ -22,6 +22,7 @@ in
     ruff
     prek
     git-cliff
+    codespell
   ];
 
   env = {
