@@ -42,7 +42,7 @@ just
 
 **1. Grill new ideas.** Any new feature, concept, or design direction MUST go through `grill-with-docs` before anything else. This ensures ideas are stress-tested against the existing domain model and documented decisions before committing to them.
 
-**2. Create issues.** Once an idea survives grilling and is deemed worth implementing, create GitHub issues. Organize into milestones if the work spans multiple issues. Every issue MUST be triaged. Apply one **category label** (`bug` or `enhancement`) and one **component label** (`rust`, `python`, or `infra`) to each issue.
+**2. Create issues.** Once an idea survives grilling and is deemed worth implementing, create GitHub issues. Every issue MUST state the "why" — why is this change needed? What problem does it solve? Organize into milestones if the work spans multiple issues. Every issue MUST be triaged. Apply one **category label** (`bug` or `enhancement`) and one **component label** (`rust`, `python`, or `infra`) to each issue.
 
 **3. Triage issues.** Every issue gets a **state label** reflecting its triage status. Apply exactly one:
 - `needs-triage` — maintainer needs to evaluate
