@@ -1,3 +1,5 @@
+#![cfg(test)]
+
 use std::collections::VecDeque;
 use std::sync::Mutex;
 
@@ -5,13 +7,11 @@ use crate::command::RawOutput;
 
 use super::{Backend, BackendError};
 
-#[cfg(test)]
 pub struct MockBackend {
     responses: Mutex<VecDeque<RawOutput>>,
     calls: Mutex<Vec<(String, Vec<String>)>>,
 }
 
-#[cfg(test)]
 impl MockBackend {
     pub fn new(responses: Vec<RawOutput>) -> Self {
         Self {
@@ -25,7 +25,6 @@ impl MockBackend {
     }
 }
 
-#[cfg(test)]
 #[async_trait::async_trait]
 impl Backend for MockBackend {
     async fn execute(&self, program: &str, args: &[&str]) -> Result<RawOutput, BackendError> {
@@ -41,7 +40,6 @@ impl Backend for MockBackend {
     }
 }
 
-#[cfg(test)]
 mod tests {
     use super::*;
 

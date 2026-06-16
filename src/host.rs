@@ -95,11 +95,7 @@ fn get_or_create_host(conn_str: &str, _ssh_config: Option<&str>) -> PyResult<Arc
         Scheme::Local => Box::new(LocalBackend),
         Scheme::Ssh { host, user, port } => {
             let b = runtime
-                .block_on(SshBackend::connect(
-                    &host,
-                    user.as_deref(),
-                    port,
-                ))
+                .block_on(SshBackend::connect(&host, user.as_deref(), port))
                 .map_err(backend_err_to_py)?;
             Box::new(b)
         }

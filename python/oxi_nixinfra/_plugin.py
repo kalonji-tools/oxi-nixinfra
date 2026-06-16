@@ -8,7 +8,7 @@ from oxitest.plugin import Plugin
 
 
 @functools.cache
-def _is_nixos() -> bool:
+def is_nixos() -> bool:
     """Detect NixOS by reading /etc/os-release."""
     try:
         with open("/etc/os-release") as f:
@@ -25,7 +25,7 @@ class NixosWrapper:
         return "nixos"
 
     def wrap(self, test_fn, marker_args):
-        if not _is_nixos():
+        if not is_nixos():
             from oxitest._bridge.result import SkippedResult
 
             return SkippedResult(message="requires NixOS")

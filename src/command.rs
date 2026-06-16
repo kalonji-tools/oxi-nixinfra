@@ -87,14 +87,22 @@ mod tests {
     #[test]
     fn test_succeeded_and_failed() {
         let success = CommandResult::from_raw(
-            RawOutput { rc: 0, stdout: Vec::new(), stderr: Vec::new() },
+            RawOutput {
+                rc: 0,
+                stdout: Vec::new(),
+                stderr: Vec::new(),
+            },
             "true".into(),
         );
         assert!(success.is_succeeded());
         assert!(!success.is_failed());
 
         let failure = CommandResult::from_raw(
-            RawOutput { rc: 1, stdout: Vec::new(), stderr: Vec::new() },
+            RawOutput {
+                rc: 1,
+                stdout: Vec::new(),
+                stderr: Vec::new(),
+            },
             "false".into(),
         );
         assert!(!failure.is_succeeded());
@@ -117,7 +125,11 @@ mod tests {
     #[test]
     fn test_repr() {
         let result = CommandResult::from_raw(
-            RawOutput { rc: 42, stdout: Vec::new(), stderr: Vec::new() },
+            RawOutput {
+                rc: 42,
+                stdout: Vec::new(),
+                stderr: Vec::new(),
+            },
             "nix build".into(),
         );
         let repr = result.__repr__();

@@ -202,10 +202,12 @@ mod tests {
             stdout: b"active\n".to_vec(),
             stderr: vec![],
         }]);
-        assert!(inner
-            .runtime
-            .block_on(is_running_impl(&inner, "nix-daemon"))
-            .unwrap());
+        assert!(
+            inner
+                .runtime
+                .block_on(is_running_impl(&inner, "nix-daemon"))
+                .unwrap()
+        );
     }
 
     #[test]
@@ -215,10 +217,12 @@ mod tests {
             stdout: b"inactive\n".to_vec(),
             stderr: vec![],
         }]);
-        assert!(!inner
-            .runtime
-            .block_on(is_running_impl(&inner, "nix-daemon"))
-            .unwrap());
+        assert!(
+            !inner
+                .runtime
+                .block_on(is_running_impl(&inner, "nix-daemon"))
+                .unwrap()
+        );
     }
 
     #[test]
@@ -228,10 +232,12 @@ mod tests {
             stdout: b"enabled\n".to_vec(),
             stderr: vec![],
         }]);
-        assert!(inner
-            .runtime
-            .block_on(is_enabled_impl(&inner, "nix-daemon"))
-            .unwrap());
+        assert!(
+            inner
+                .runtime
+                .block_on(is_enabled_impl(&inner, "nix-daemon"))
+                .unwrap()
+        );
     }
 
     #[test]
@@ -241,10 +247,12 @@ mod tests {
             stdout: b"disabled\n".to_vec(),
             stderr: vec![],
         }]);
-        assert!(!inner
-            .runtime
-            .block_on(is_enabled_impl(&inner, "sshd"))
-            .unwrap());
+        assert!(
+            !inner
+                .runtime
+                .block_on(is_enabled_impl(&inner, "sshd"))
+                .unwrap()
+        );
     }
 
     #[test]
@@ -255,10 +263,12 @@ mod tests {
                 .to_vec(),
             stderr: vec![],
         }]);
-        assert!(inner
-            .runtime
-            .block_on(exists_impl(&inner, "nix-daemon"))
-            .unwrap());
+        assert!(
+            inner
+                .runtime
+                .block_on(exists_impl(&inner, "nix-daemon"))
+                .unwrap()
+        );
     }
 
     #[test]
@@ -268,10 +278,12 @@ mod tests {
             stdout: b"sshd.service  enabled  enabled\n".to_vec(),
             stderr: vec![],
         }]);
-        assert!(!inner
-            .runtime
-            .block_on(exists_impl(&inner, "nix-daemon"))
-            .unwrap());
+        assert!(
+            !inner
+                .runtime
+                .block_on(exists_impl(&inner, "nix-daemon"))
+                .unwrap()
+        );
     }
 
     #[test]
@@ -281,18 +293,19 @@ mod tests {
             stdout: b"masked\n".to_vec(),
             stderr: vec![],
         }]);
-        assert!(inner
-            .runtime
-            .block_on(is_masked_impl(&inner, "masked-svc"))
-            .unwrap());
+        assert!(
+            inner
+                .runtime
+                .block_on(is_masked_impl(&inner, "masked-svc"))
+                .unwrap()
+        );
     }
 
     #[test]
     fn test_properties_parse() {
         let inner = make_inner(vec![RawOutput {
             rc: 0,
-            stdout: b"Type=simple\nExecStart=/bin/foo\nDescription=\nActiveState=active\n"
-                .to_vec(),
+            stdout: b"Type=simple\nExecStart=/bin/foo\nDescription=\nActiveState=active\n".to_vec(),
             stderr: vec![],
         }]);
         let props = inner

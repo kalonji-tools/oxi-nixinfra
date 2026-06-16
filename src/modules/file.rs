@@ -209,10 +209,7 @@ impl File {
     }
 
     fn contains(&self, pattern: &str) -> PyResult<bool> {
-        crate::helpers::wrap_sync(
-            &self.inner,
-            contains_impl(&self.inner, &self.path, pattern),
-        )
+        crate::helpers::wrap_sync(&self.inner, contains_impl(&self.inner, &self.path, pattern))
     }
 
     fn md5sum(&self) -> PyResult<String> {
@@ -507,10 +504,12 @@ mod tests {
             stdout: vec![],
             stderr: vec![],
         }]);
-        assert!(inner
-            .runtime
-            .block_on(contains_impl(&inner, "/etc/hosts", "localhost"))
-            .unwrap());
+        assert!(
+            inner
+                .runtime
+                .block_on(contains_impl(&inner, "/etc/hosts", "localhost"))
+                .unwrap()
+        );
     }
 
     #[test]
@@ -520,10 +519,12 @@ mod tests {
             stdout: vec![],
             stderr: vec![],
         }]);
-        assert!(!inner
-            .runtime
-            .block_on(contains_impl(&inner, "/etc/hosts", "nonexistent"))
-            .unwrap());
+        assert!(
+            !inner
+                .runtime
+                .block_on(contains_impl(&inner, "/etc/hosts", "nonexistent"))
+                .unwrap()
+        );
     }
 
     #[test]

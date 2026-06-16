@@ -9,12 +9,12 @@ use crate::host::HostInner;
 // Layer 1 — Async core functions
 // ---------------------------------------------------------------------------
 
-async fn find_store_path(
-    inner: &HostInner,
-    name: &str,
-) -> Result<Option<String>, BackendError> {
+async fn find_store_path(inner: &HostInner, name: &str) -> Result<Option<String>, BackendError> {
     let out = inner
-        .execute("nix-store", &["-q", "--references", "/run/current-system/sw"])
+        .execute(
+            "nix-store",
+            &["-q", "--references", "/run/current-system/sw"],
+        )
         .await?;
     let stdout = String::from_utf8_lossy(&out.stdout);
     Ok(stdout
@@ -31,17 +31,11 @@ pub fn parse_version_from_store_path(store_path: &str, name: &str) -> Option<Str
     after_name.strip_prefix('-').map(|v| v.to_owned())
 }
 
-pub async fn is_installed_impl(
-    inner: &HostInner,
-    name: &str,
-) -> Result<bool, BackendError> {
+pub async fn is_installed_impl(inner: &HostInner, name: &str) -> Result<bool, BackendError> {
     Ok(find_store_path(inner, name).await?.is_some())
 }
 
-pub async fn version_impl(
-    inner: &HostInner,
-    name: &str,
-) -> Result<Option<String>, BackendError> {
+pub async fn version_impl(inner: &HostInner, name: &str) -> Result<Option<String>, BackendError> {
     let path = find_store_path(inner, name).await?;
     Ok(path.and_then(|p| parse_version_from_store_path(&p, name)))
 }
@@ -186,10 +180,12 @@ mod tests {
             runtime: tokio::runtime::Runtime::new().unwrap(),
             connection_string: "mock://".to_owned(),
         };
-        assert!(inner
-            .runtime
-            .block_on(is_installed_impl(&inner, "git"))
-            .unwrap());
+        assert!(
+            inner
+                .runtime
+                .block_on(is_installed_impl(&inner, "git"))
+                .unwrap()
+        );
     }
 
     #[test]
@@ -206,9 +202,11 @@ mod tests {
             runtime: tokio::runtime::Runtime::new().unwrap(),
             connection_string: "mock://".to_owned(),
         };
-        assert!(!inner
-            .runtime
-            .block_on(is_installed_impl(&inner, "emacs"))
-            .unwrap());
+        assert!(
+            !inner
+                .runtime
+                .block_on(is_installed_impl(&inner, "emacs"))
+                .unwrap()
+        );
     }
 }
