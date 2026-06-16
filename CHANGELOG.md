@@ -1,6 +1,16 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+## [0.2.0] - 2026-06-16
+
+### Features
+
+
+- NixOS-native redesign — is_managed, enablement_status, store_path (#67)
+- Add is_nix_managed and store_path (#68)
+- Replace generic Linux with NixOS-native system info (#70)
+- Add is_declared for NixOS user provenance detection (#69)
+
 ## [0.1.0] - 2026-06-16
 
 ### Bug Fixes
