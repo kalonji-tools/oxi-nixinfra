@@ -51,7 +51,7 @@ just
 - `ready-for-human` — needs human implementation
 - `wontfix` — will not be actioned
 
-**4. Spec every issue.** By the time a PR is created, every issue in that PR MUST have a design spec. Specs can be written when the issue is picked up or ahead of time — but never skipped. Use the `superpowers:brainstorming` skill for spec design. Post each issue's spec section as a comment on that issue. When issues share a grouped spec, post only the section relevant to each issue — not the entire spec on every issue.
+**4. Spec every issue.** By the time a PR is created, every issue in that PR MUST have a design spec. If no issue exists yet for the work being specced, create one first — every spec needs a home issue. Specs can be written when the issue is picked up or ahead of time — but never skipped. Use the `superpowers:brainstorming` skill for spec design. Post each issue's spec section as a comment on that issue. When issues share a grouped spec, post only the section relevant to each issue — not the entire spec on every issue.
 
 **5. Create a draft PR.** Push the branch and open a draft PR before any implementation begins. This gives reviewers a chance to evaluate the approach early.
 
@@ -67,6 +67,8 @@ just
 - Multiple issues per commit are fine: `feat: add Bar and Baz (#43, #44)`
 - Run `just preflight` before pushing.
 
+**9. Post-merge debrief.** After a PR is merged, if the implementation diverged from the plan, add a debrief comment to the closed PR explaining how, where, and why it diverged. Apply the `diverged-from-plan` label to the PR. This label is only applied to closed/merged PRs.
+
 ### Quick reference
 
 | Stage | Required? | Skill | Labels |
@@ -79,6 +81,7 @@ just
 | Implementation plan | Before coding | `superpowers:writing-plans` | — |
 | Execute plan | During coding | `superpowers:subagent-driven-development` | — |
 | Code review | Before merge | `superpowers:requesting-code-review` | — |
+| Post-merge debrief | If diverged | — | `diverged-from-plan` (closed PRs only) |
 
 ## Architecture
 
@@ -128,7 +131,7 @@ Config resolution: `OXITEST_HOST` env var > pyproject.toml > `"local://"` defaul
 
 - **Rust unit tests** (`just test-rust`): Mock `Backend` trait with `MockBackend`, test command output parsing.
 - **Python integration tests** (`just test`): Run real commands on local machine. Tests marked `@oxitest.mark.nixos` auto-skip on non-NixOS.
-- **CI**: Uses devenv. Runs `just check`, `just test-rust`, `just build`, `just test`. NixOS-specific tests skip automatically on Ubuntu runners.
+- **CI**: GitHub Actions with path filtering (`dorny/paths-filter`). Two parallel jobs: `check` (static analysis via `just check`) and `test` (`just test-rust`, `just build`, `just test`). Docs-only PRs skip both. Uses `dtolnay/rust-toolchain`, `astral-sh/setup-uv`, `Swatinem/rust-cache` — no devenv in CI. NixOS-specific tests auto-skip on Ubuntu runners.
 
 ## graphify
 
