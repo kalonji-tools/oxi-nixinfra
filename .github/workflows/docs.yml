@@ -1,0 +1,118 @@
+name: Docs
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    name: Detect docs changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      docs: ${{ steps.filter.outputs.docs }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            docs:
+              - 'docs/user/**'
+              - 'docs/internals/**'
+              - 'mkdocs.yml'
+              - 'pyproject.toml'
+
+  build:
+    name: Build docs
+    needs: changes
+    if: >-
+      github.event_name != 'pull_request'
+      || needs.changes.outputs.docs == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: just
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Install docs tools
+        run: |
+          uv sync --group docs
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+        env:
+          VIRTUAL_ENV: ${{ github.workspace }}/.venv
+
+      - name: Build user docs
+        run: uv run --group docs mkdocs build --strict
+
+      - uses: peaceiris/actions-mdbook@v2
+        with:
+          mdbook-version: '0.5.2'
+
+      - name: Install mdbook-mermaid
+        run: |
+          curl -sSL https://github.com/badboy/mdbook-mermaid/releases/download/v0.17.0/mdbook-mermaid-v0.17.0-x86_64-unknown-linux-gnu.tar.gz | tar xz -C /usr/local/bin
+
+      - name: Build internals book
+        run: mdbook build docs/internals
+
+      - name: Merge into site
+        run: cp -r docs/internals/book docs/site/internals
+
+      - uses: actions/upload-pages-artifact@v5
+        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+        with:
+          path: docs/site
+
+  required:
+    name: Build docs (required)
+    needs: [build]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check build result
+        shell: bash
+        run: |
+          if [[ "${{ needs.build.result }}" == "failure" ]]; then
+            echo "Docs build failed"
+            exit 1
+          fi
+          echo "Docs build passed or was skipped"
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
