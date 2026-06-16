@@ -48,3 +48,6 @@ docs/specs/
 
 # MkDocs build output
 docs/site/
+
+# mdbook build output
+docs/internals/book/
