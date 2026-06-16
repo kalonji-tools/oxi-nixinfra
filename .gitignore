@@ -45,3 +45,6 @@ graphify-out/.graphify_root
 .devenv.flake.nix
 .oxitest_cache/
 docs/specs/
+
+# MkDocs build output
+docs/site/
