@@ -1,5 +1,4 @@
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use pyo3::prelude::*;
 
@@ -7,44 +6,87 @@ use crate::backend::BackendError;
 use crate::host::HostInner;
 
 // ---------------------------------------------------------------------------
-// Parsing
+// Boot info struct
 // ---------------------------------------------------------------------------
 
-pub fn parse_os_release(content: &str) -> HashMap<String, String> {
-    content
+pub struct BootInfo {
+    pub kernel_version: String,
+    pub arch: String,
+    pub label: String,
+}
+
+fn parse_kernel_version(kernel_path: &str) -> String {
+    kernel_path
+        .rsplit('/')
+        .nth(1)
+        .and_then(|dir| dir.get(33..))
+        .and_then(|s| s.strip_prefix("linux-"))
+        .unwrap_or("unknown")
+        .to_owned()
+}
+
+// ---------------------------------------------------------------------------
+// Layer 1 — Async core functions
+// ---------------------------------------------------------------------------
+
+pub async fn nixos_version_impl(inner: &HostInner) -> Result<String, BackendError> {
+    let out = inner
+        .execute("cat", &["/run/current-system/nixos-version"])
+        .await?;
+    Ok(String::from_utf8_lossy(&out.stdout).trim().to_owned())
+}
+
+pub async fn system_profile_impl(inner: &HostInner) -> Result<String, BackendError> {
+    let out = inner.execute("readlink", &["/run/current-system"]).await?;
+    Ok(String::from_utf8_lossy(&out.stdout).trim().to_owned())
+}
+
+pub async fn generation_count_impl(inner: &HostInner) -> Result<i32, BackendError> {
+    let out = inner
+        .execute("ls", &["-1", "/nix/var/nix/profiles/"])
+        .await?;
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let count = stdout
         .lines()
-        .filter_map(|line| {
-            let (key, value) = line.split_once('=')?;
-            let value = value.trim_matches('"').trim_matches('\'').to_owned();
-            Some((key.to_owned(), value))
-        })
-        .collect()
+        .filter(|line| line.starts_with("system-") && line.ends_with("-link"))
+        .count();
+    #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
+    Ok(count as i32)
 }
 
-// ---------------------------------------------------------------------------
-// Layer 1 — Async core function
-// ---------------------------------------------------------------------------
-
-pub async fn sysinfo_impl(inner: &HostInner) -> Result<HashMap<String, String>, BackendError> {
-    let os_release = inner.execute("cat", &["/etc/os-release"]).await?;
-    let uname_s = inner.execute("uname", &["-s"]).await?;
-    let uname_m = inner.execute("uname", &["-m"]).await?;
-
-    let mut info = parse_os_release(&String::from_utf8_lossy(&os_release.stdout));
-
-    let sys_type = String::from_utf8_lossy(&uname_s.stdout)
-        .trim()
-        .to_lowercase();
-    info.insert("type".to_owned(), sys_type);
-
-    let arch = String::from_utf8_lossy(&uname_m.stdout).trim().to_owned();
-    info.insert("arch".to_owned(), arch);
-
-    Ok(info)
+pub async fn boot_info_impl(inner: &HostInner) -> Result<BootInfo, BackendError> {
+    let out = inner
+        .execute("cat", &["/run/current-system/boot.json"])
+        .await?;
+    let json = String::from_utf8_lossy(&out.stdout);
+    let extract = |key: &str| -> String {
+        let needle = format!("\"{key}\":\"");
+        json.find(&needle)
+            .map(|pos| {
+                let start = pos + needle.len();
+                let end = json[start..].find('"').map_or(json.len(), |e| start + e);
+                json[start..end].to_owned()
+            })
+            .unwrap_or_default()
+    };
+    let kernel_path = extract("kernel");
+    Ok(BootInfo {
+        kernel_version: parse_kernel_version(&kernel_path),
+        arch: extract("system"),
+        label: extract("label"),
+    })
 }
 
-fn extract_field(info: &HashMap<String, String>, key: &str) -> Option<String> {
-    info.get(key).filter(|v| !v.is_empty()).cloned()
+pub async fn specialisations_impl(inner: &HostInner) -> Result<Vec<String>, BackendError> {
+    let out = inner
+        .execute("ls", &["-1", "/run/current-system/specialisation/"])
+        .await?;
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    Ok(stdout
+        .lines()
+        .filter(|l| !l.is_empty())
+        .map(std::borrow::ToOwned::to_owned)
+        .collect())
 }
 
 // ---------------------------------------------------------------------------
@@ -54,49 +96,45 @@ fn extract_field(info: &HashMap<String, String>, key: &str) -> Option<String> {
 #[pyclass(frozen)]
 pub struct SystemInfo {
     pub(crate) inner: Arc<HostInner>,
-    cache: Mutex<Option<HashMap<String, String>>>,
 }
 
 impl SystemInfo {
     pub fn new(inner: Arc<HostInner>) -> Self {
-        Self {
-            inner,
-            cache: Mutex::new(None),
-        }
-    }
-
-    fn ensure_loaded(&self) -> PyResult<HashMap<String, String>> {
-        let mut guard = self.cache.lock().unwrap();
-        if let Some(ref cached) = *guard {
-            return Ok(cached.clone());
-        }
-        let info = crate::helpers::wrap_sync(&self.inner, sysinfo_impl(&self.inner))?;
-        *guard = Some(info.clone());
-        Ok(info)
+        Self { inner }
     }
 }
 
 #[pymethods]
 impl SystemInfo {
-    #[pyo3(name = "type")]
-    fn type_(&self) -> PyResult<Option<String>> {
-        Ok(extract_field(&self.ensure_loaded()?, "type"))
+    fn nixos_version(&self) -> PyResult<String> {
+        crate::helpers::wrap_sync(&self.inner, nixos_version_impl(&self.inner))
     }
 
-    fn distribution(&self) -> PyResult<Option<String>> {
-        Ok(extract_field(&self.ensure_loaded()?, "ID"))
+    fn system_profile(&self) -> PyResult<String> {
+        crate::helpers::wrap_sync(&self.inner, system_profile_impl(&self.inner))
     }
 
-    fn release(&self) -> PyResult<Option<String>> {
-        Ok(extract_field(&self.ensure_loaded()?, "VERSION_ID"))
+    fn generation_count(&self) -> PyResult<i32> {
+        crate::helpers::wrap_sync(&self.inner, generation_count_impl(&self.inner))
     }
 
-    fn codename(&self) -> PyResult<Option<String>> {
-        Ok(extract_field(&self.ensure_loaded()?, "VERSION_CODENAME"))
+    fn kernel_version(&self) -> PyResult<String> {
+        let info = crate::helpers::wrap_sync(&self.inner, boot_info_impl(&self.inner))?;
+        Ok(info.kernel_version)
     }
 
-    fn arch(&self) -> PyResult<Option<String>> {
-        Ok(extract_field(&self.ensure_loaded()?, "arch"))
+    fn arch(&self) -> PyResult<String> {
+        let info = crate::helpers::wrap_sync(&self.inner, boot_info_impl(&self.inner))?;
+        Ok(info.arch)
+    }
+
+    fn label(&self) -> PyResult<String> {
+        let info = crate::helpers::wrap_sync(&self.inner, boot_info_impl(&self.inner))?;
+        Ok(info.label)
+    }
+
+    fn specialisations(&self) -> PyResult<Vec<String>> {
+        crate::helpers::wrap_sync(&self.inner, specialisations_impl(&self.inner))
     }
 
     fn __repr__(&self) -> String {
@@ -115,54 +153,69 @@ pub struct AsyncSystemInfo {
 
 #[pymethods]
 impl AsyncSystemInfo {
-    #[pyo3(name = "type")]
-    fn type_<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+    fn nixos_version<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         let inner = self.inner.clone();
         pyo3_async_runtimes::tokio::future_into_py(py, async move {
-            let info = sysinfo_impl(&inner)
+            nixos_version_impl(&inner)
                 .await
-                .map_err(crate::helpers::backend_err_to_py)?;
-            Ok(extract_field(&info, "type"))
+                .map_err(crate::helpers::backend_err_to_py)
         })
     }
 
-    fn distribution<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+    fn system_profile<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         let inner = self.inner.clone();
         pyo3_async_runtimes::tokio::future_into_py(py, async move {
-            let info = sysinfo_impl(&inner)
+            system_profile_impl(&inner)
                 .await
-                .map_err(crate::helpers::backend_err_to_py)?;
-            Ok(extract_field(&info, "ID"))
+                .map_err(crate::helpers::backend_err_to_py)
         })
     }
 
-    fn release<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+    fn generation_count<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         let inner = self.inner.clone();
         pyo3_async_runtimes::tokio::future_into_py(py, async move {
-            let info = sysinfo_impl(&inner)
+            generation_count_impl(&inner)
                 .await
-                .map_err(crate::helpers::backend_err_to_py)?;
-            Ok(extract_field(&info, "VERSION_ID"))
+                .map_err(crate::helpers::backend_err_to_py)
         })
     }
 
-    fn codename<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+    fn kernel_version<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         let inner = self.inner.clone();
         pyo3_async_runtimes::tokio::future_into_py(py, async move {
-            let info = sysinfo_impl(&inner)
+            let info = boot_info_impl(&inner)
                 .await
                 .map_err(crate::helpers::backend_err_to_py)?;
-            Ok(extract_field(&info, "VERSION_CODENAME"))
+            Ok(info.kernel_version)
         })
     }
 
     fn arch<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         let inner = self.inner.clone();
         pyo3_async_runtimes::tokio::future_into_py(py, async move {
-            let info = sysinfo_impl(&inner)
+            let info = boot_info_impl(&inner)
                 .await
                 .map_err(crate::helpers::backend_err_to_py)?;
-            Ok(extract_field(&info, "arch"))
+            Ok(info.arch)
+        })
+    }
+
+    fn label<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        let inner = self.inner.clone();
+        pyo3_async_runtimes::tokio::future_into_py(py, async move {
+            let info = boot_info_impl(&inner)
+                .await
+                .map_err(crate::helpers::backend_err_to_py)?;
+            Ok(info.label)
+        })
+    }
+
+    fn specialisations<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        let inner = self.inner.clone();
+        pyo3_async_runtimes::tokio::future_into_py(py, async move {
+            specialisations_impl(&inner)
+                .await
+                .map_err(crate::helpers::backend_err_to_py)
         })
     }
 
@@ -178,54 +231,113 @@ impl AsyncSystemInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::backend::mock::MockBackend;
+    use crate::command::RawOutput;
 
-    #[test]
-    fn test_parse_os_release_quoted() {
-        let content = r#"NAME="NixOS"
-ID=nixos
-VERSION_ID="24.05"
-VERSION_CODENAME=""
-PRETTY_NAME="NixOS 24.05 (Uakari)"
-"#;
-        let info = parse_os_release(content);
-        assert_eq!(info.get("NAME").unwrap(), "NixOS");
-        assert_eq!(info.get("ID").unwrap(), "nixos");
-        assert_eq!(info.get("VERSION_ID").unwrap(), "24.05");
-        assert_eq!(info.get("VERSION_CODENAME").unwrap(), "");
+    fn make_inner(responses: Vec<RawOutput>) -> HostInner {
+        HostInner {
+            backend: Box::new(MockBackend::new(responses)),
+            runtime: tokio::runtime::Runtime::new().unwrap(),
+            connection_string: "mock://".to_owned(),
+        }
     }
 
     #[test]
-    fn test_parse_os_release_unquoted() {
-        let content = "ID=nixos\nVERSION_ID=24.05\n";
-        let info = parse_os_release(content);
-        assert_eq!(info.get("ID").unwrap(), "nixos");
-        assert_eq!(info.get("VERSION_ID").unwrap(), "24.05");
+    fn test_nixos_version() {
+        let inner = make_inner(vec![RawOutput {
+            rc: 0,
+            stdout: b"25.11.9840.a4bf06618f0b".to_vec(),
+            stderr: vec![],
+        }]);
+        assert_eq!(
+            inner.runtime.block_on(nixos_version_impl(&inner)).unwrap(),
+            "25.11.9840.a4bf06618f0b"
+        );
     }
 
     #[test]
-    fn test_parse_os_release_single_quoted() {
-        let content = "NAME='NixOS'\n";
-        let info = parse_os_release(content);
-        assert_eq!(info.get("NAME").unwrap(), "NixOS");
+    fn test_system_profile() {
+        let inner = make_inner(vec![RawOutput {
+            rc: 0,
+            stdout: b"/nix/store/abc123-nixos-system-nixos-25.11\n".to_vec(),
+            stderr: vec![],
+        }]);
+        assert_eq!(
+            inner.runtime.block_on(system_profile_impl(&inner)).unwrap(),
+            "/nix/store/abc123-nixos-system-nixos-25.11"
+        );
     }
 
     #[test]
-    fn test_extract_field_empty_is_none() {
-        let mut info = HashMap::new();
-        info.insert("VERSION_CODENAME".to_owned(), String::new());
-        assert!(extract_field(&info, "VERSION_CODENAME").is_none());
+    fn test_generation_count() {
+        let inner = make_inner(vec![RawOutput {
+            rc: 0,
+            stdout: b"system-1-link\nsystem-2-link\nsystem-3-link\n".to_vec(),
+            stderr: vec![],
+        }]);
+        assert_eq!(
+            inner
+                .runtime
+                .block_on(generation_count_impl(&inner))
+                .unwrap(),
+            3
+        );
     }
 
     #[test]
-    fn test_extract_field_missing_is_none() {
-        let info = HashMap::new();
-        assert!(extract_field(&info, "NONEXISTENT").is_none());
+    fn test_boot_info_parsing() {
+        let boot_json = br#"{"org.nixos.bootspec.v1":{"kernel":"/nix/store/abc123abc123abc123abc123abc123ab-linux-6.12.83/bzImage","system":"x86_64-linux","label":"NixOS Xantusia 25.11 (Linux 6.12.83)"},"org.nixos.specialisation.v1":{}}"#;
+        let inner = make_inner(vec![RawOutput {
+            rc: 0,
+            stdout: boot_json.to_vec(),
+            stderr: vec![],
+        }]);
+        let info = inner.runtime.block_on(boot_info_impl(&inner)).unwrap();
+        assert_eq!(info.kernel_version, "6.12.83");
+        assert_eq!(info.arch, "x86_64-linux");
+        assert_eq!(info.label, "NixOS Xantusia 25.11 (Linux 6.12.83)");
     }
 
     #[test]
-    fn test_extract_field_present() {
-        let mut info = HashMap::new();
-        info.insert("ID".to_owned(), "nixos".to_owned());
-        assert_eq!(extract_field(&info, "ID").unwrap(), "nixos");
+    fn test_specialisations_empty() {
+        let inner = make_inner(vec![RawOutput {
+            rc: 0,
+            stdout: b"".to_vec(),
+            stderr: vec![],
+        }]);
+        let specs = inner
+            .runtime
+            .block_on(specialisations_impl(&inner))
+            .unwrap();
+        assert!(specs.is_empty());
+    }
+
+    #[test]
+    fn test_specialisations_some() {
+        let inner = make_inner(vec![RawOutput {
+            rc: 0,
+            stdout: b"gaming\nwork\n".to_vec(),
+            stderr: vec![],
+        }]);
+        let specs = inner
+            .runtime
+            .block_on(specialisations_impl(&inner))
+            .unwrap();
+        assert_eq!(specs, vec!["gaming", "work"]);
+    }
+
+    #[test]
+    fn test_parse_kernel_version() {
+        assert_eq!(
+            parse_kernel_version(
+                "/nix/store/abc123abc123abc123abc123abc123ab-linux-6.12.83/bzImage"
+            ),
+            "6.12.83"
+        );
+    }
+
+    #[test]
+    fn test_parse_kernel_version_unknown() {
+        assert_eq!(parse_kernel_version(""), "unknown");
     }
 }
