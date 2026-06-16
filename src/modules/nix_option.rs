@@ -9,11 +9,21 @@ use crate::host::HostInner;
 // Layer 1 — Async core functions
 // ---------------------------------------------------------------------------
 
+/// Check if a NixOS option exists at the given path.
+///
+/// **Local-only**: Uses `nixos-option` which evaluates the full Nix expression
+/// tree. This requires access to the system's Nix configuration source and
+/// does not work on remote hosts via SSH.
 pub async fn exists_impl(inner: &HostInner, path: &str) -> Result<bool, BackendError> {
     let out = inner.execute("nixos-option", &[path]).await?;
     Ok(out.rc == 0)
 }
 
+/// Get the value of a NixOS option at the given path.
+///
+/// **Local-only**: Uses `nixos-option` which evaluates the full Nix expression
+/// tree. This requires access to the system's Nix configuration source and
+/// does not work on remote hosts via SSH.
 pub async fn value_impl(inner: &HostInner, path: &str) -> Result<String, BackendError> {
     let out = inner.execute("nixos-option", &[path]).await?;
     if out.rc == 0 {
