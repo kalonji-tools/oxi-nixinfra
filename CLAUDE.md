@@ -23,7 +23,7 @@ just test-rust
 # Run Python integration tests (requires just build first)
 just test
 
-# Run all static checks (ruff, cargo fmt, clippy)
+# Run all static checks (ruff, cargo fmt, clippy, codespell)
 just check
 
 # Full pre-push gate (clean + check + test-rust + build + test)
@@ -51,13 +51,15 @@ just
 - `ready-for-human` — needs human implementation
 - `wontfix` — will not be actioned
 
-**4. Spec every issue.** By the time a PR is created, every issue in that PR MUST have a design spec. Specs can be written when the issue is picked up or ahead of time — but never skipped. Use the `superpowers:brainstorming` skill for spec design. Post spec content as a comment on the relevant issue.
+**4. Spec every issue.** By the time a PR is created, every issue in that PR MUST have a design spec. Specs can be written when the issue is picked up or ahead of time — but never skipped. Use the `superpowers:brainstorming` skill for spec design. Post each issue's spec section as a comment on that issue. When issues share a grouped spec, post only the section relevant to each issue — not the entire spec on every issue.
 
-**5. Plan before implementing.** Use the `superpowers:writing-plans` skill. Multiple issues can be grouped into one plan if they are tightly coupled or logically sequential. The plan MUST be posted as a comment on the PR before coding begins.
+**5. Create a draft PR.** Push the branch and open a draft PR before any implementation begins. This gives reviewers a chance to evaluate the approach early.
 
-**6. Implement via subagents or inline.** Use `superpowers:subagent-driven-development` or `superpowers:executing-plans`.
+**6. Plan before implementing.** Use the `superpowers:writing-plans` skill. Multiple issues can be grouped into one plan if they are tightly coupled or logically sequential. The plan MUST be posted as a comment on the PR — never on individual issues.
 
-**7. Merge rules.**
+**7. Implement via subagents or inline.** Use `superpowers:subagent-driven-development` or `superpowers:executing-plans`.
+
+**8. Merge rules.**
 - **Never push directly to main.** All changes go through pull requests.
 - **Never merge without approval.** Wait for either a GitHub review approval or an explicit user command (e.g., "merge", "merge rebase delete branch"). Do not auto-merge after CI passes.
 - Only `--rebase` merge is allowed. Never squash merge, never merge commits.
@@ -73,6 +75,7 @@ just
 | Create issues | Always | — | category (`bug`/`enhancement`) + component (`rust`/`python`/`infra`) |
 | Triage issues | Always | `triage` | state (`needs-triage`/`needs-info`/`ready-for-agent`/`ready-for-human`/`wontfix`) |
 | Design spec | Before PR | `superpowers:brainstorming` | — |
+| Draft PR | Before coding | — | — |
 | Implementation plan | Before coding | `superpowers:writing-plans` | — |
 | Execute plan | During coding | `superpowers:subagent-driven-development` | — |
 | Code review | Before merge | `superpowers:requesting-code-review` | — |
