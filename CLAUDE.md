@@ -42,15 +42,22 @@ just
 
 **1. Grill new ideas.** Any new feature, concept, or design direction MUST go through `grill-with-docs` before anything else. This ensures ideas are stress-tested against the existing domain model and documented decisions before committing to them.
 
-**2. Create issues.** Once an idea survives grilling and is deemed worth implementing, create GitHub issues. Organize into milestones if the work spans multiple issues. Every issue MUST be triaged.
+**2. Create issues.** Once an idea survives grilling and is deemed worth implementing, create GitHub issues. Organize into milestones if the work spans multiple issues. Every issue MUST be triaged. Apply one **category label** (`bug` or `enhancement`) and one **component label** (`rust`, `python`, or `infra`) to each issue.
 
-**3. Spec every issue.** By the time a PR is created, every issue in that PR MUST have a design spec. Specs can be written when the issue is picked up or ahead of time — but never skipped. Use the `superpowers:brainstorming` skill for spec design. Post spec content as a comment on the relevant issue.
+**3. Triage issues.** Every issue gets a **state label** reflecting its triage status. Apply exactly one:
+- `needs-triage` — maintainer needs to evaluate
+- `needs-info` — waiting on reporter for more information
+- `ready-for-agent` — fully specified, ready for an AFK agent
+- `ready-for-human` — needs human implementation
+- `wontfix` — will not be actioned
 
-**4. Plan before implementing.** Use the `superpowers:writing-plans` skill. Multiple issues can be grouped into one plan if they are tightly coupled or logically sequential. The plan MUST be posted as a comment on the PR before coding begins.
+**4. Spec every issue.** By the time a PR is created, every issue in that PR MUST have a design spec. Specs can be written when the issue is picked up or ahead of time — but never skipped. Use the `superpowers:brainstorming` skill for spec design. Post spec content as a comment on the relevant issue.
 
-**5. Implement via subagents or inline.** Use `superpowers:subagent-driven-development` or `superpowers:executing-plans`.
+**5. Plan before implementing.** Use the `superpowers:writing-plans` skill. Multiple issues can be grouped into one plan if they are tightly coupled or logically sequential. The plan MUST be posted as a comment on the PR before coding begins.
 
-**6. Merge rules.**
+**6. Implement via subagents or inline.** Use `superpowers:subagent-driven-development` or `superpowers:executing-plans`.
+
+**7. Merge rules.**
 - **Never push directly to main.** All changes go through pull requests.
 - **Never merge without approval.** Wait for either a GitHub review approval or an explicit user command (e.g., "merge", "merge rebase delete branch"). Do not auto-merge after CI passes.
 - Only `--rebase` merge is allowed. Never squash merge, never merge commits.
@@ -60,15 +67,15 @@ just
 
 ### Quick reference
 
-| Stage | Required? | Skill |
-|-------|-----------|-------|
-| Grill new ideas | Always | `grill-with-docs` |
-| Create issues | Always | — |
-| Triage issues | Always | `triage` |
-| Design spec | Before PR | `superpowers:brainstorming` |
-| Implementation plan | Before coding | `superpowers:writing-plans` |
-| Execute plan | During coding | `superpowers:subagent-driven-development` |
-| Code review | Before merge | `superpowers:requesting-code-review` |
+| Stage | Required? | Skill | Labels |
+|-------|-----------|-------|--------|
+| Grill new ideas | Always | `grill-with-docs` | — |
+| Create issues | Always | — | category (`bug`/`enhancement`) + component (`rust`/`python`/`infra`) |
+| Triage issues | Always | `triage` | state (`needs-triage`/`needs-info`/`ready-for-agent`/`ready-for-human`/`wontfix`) |
+| Design spec | Before PR | `superpowers:brainstorming` | — |
+| Implementation plan | Before coding | `superpowers:writing-plans` | — |
+| Execute plan | During coding | `superpowers:subagent-driven-development` | — |
+| Code review | Before merge | `superpowers:requesting-code-review` | — |
 
 ## Architecture
 
