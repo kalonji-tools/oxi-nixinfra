@@ -45,6 +45,7 @@ check: (_log _blue "Running static checks...")
     cargo fmt --check
     ruff check python/ tests/
     cargo clippy -- -D warnings
+    codespell --toml pyproject.toml
 
 # Full pre-push gate: clean, check, test everything
 preflight: clean check test-rust build test
@@ -54,6 +55,7 @@ preflight: clean check test-rust build test
 fmt *args: (_log _yellow "Formatting...")
     ruff format python/ tests/
     cargo fmt {{args}}
+    codespell --toml pyproject.toml --write-changes
 
 # Generate CHANGELOG.md from conventional commits
 changelog *args: (_log _green "Generating changelog...")
@@ -68,7 +70,7 @@ clean: (_log _red "Removing build artifacts...")
 health:
     #!/usr/bin/env bash
     missing=0
-    for cmd in cargo maturin python3 just ruff prek git-cliff; do
+    for cmd in cargo maturin python3 just ruff prek git-cliff codespell; do
         if command -v "$cmd" > /dev/null 2>&1; then
             printf '  ✓ %s (%s)\n' "$cmd" "$(command -v "$cmd")"
         else
