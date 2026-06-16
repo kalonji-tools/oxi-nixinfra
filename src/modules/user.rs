@@ -47,7 +47,10 @@ pub async fn group_impl(inner: &HostInner, name: &str) -> Result<String, Backend
 pub async fn groups_impl(inner: &HostInner, name: &str) -> Result<Vec<String>, BackendError> {
     let out = inner.execute("id", &["-nG", name]).await?;
     let stdout = String::from_utf8_lossy(&out.stdout);
-    Ok(stdout.split_whitespace().map(|s| s.to_owned()).collect())
+    Ok(stdout
+        .split_whitespace()
+        .map(std::borrow::ToOwned::to_owned)
+        .collect())
 }
 
 async fn getent_field(inner: &HostInner, name: &str, index: usize) -> Result<String, BackendError> {
@@ -56,7 +59,7 @@ async fn getent_field(inner: &HostInner, name: &str, index: usize) -> Result<Str
     let line = stdout.trim();
     line.split(':')
         .nth(index)
-        .map(|s| s.to_owned())
+        .map(std::borrow::ToOwned::to_owned)
         .ok_or_else(|| {
             BackendError::Execution(format!(
                 "failed to parse getent field {index} for user: {name}"

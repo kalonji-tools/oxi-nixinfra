@@ -1,8 +1,10 @@
 """oxitest plugin entry point for oxi-nixinfra."""
+
 from __future__ import annotations
 
 import functools
 import os
+from pathlib import Path
 
 from oxitest.plugin import Plugin
 
@@ -11,7 +13,7 @@ from oxitest.plugin import Plugin
 def is_nixos() -> bool:
     """Detect NixOS by reading /etc/os-release."""
     try:
-        with open("/etc/os-release") as f:
+        with Path("/etc/os-release").open() as f:
             return any(line.strip() == "ID=nixos" for line in f)
     except FileNotFoundError:
         return False
@@ -52,9 +54,7 @@ class HostProvider:
         from oxi_nixinfra import Host
 
         host_str = (
-            os.environ.get("OXITEST_HOST")
-            or self._config.get("host")
-            or "local://"
+            os.environ.get("OXITEST_HOST") or self._config.get("host") or "local://"
         )
         ssh_config = self._config.get("ssh_config")
         return Host._from_config(host_str, ssh_config=ssh_config)

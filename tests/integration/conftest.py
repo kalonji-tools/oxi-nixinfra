@@ -1,8 +1,10 @@
 """Shared fixtures for integration tests."""
+
 from oxi_nixinfra import Host
-from oxitest import Fixture, Fixtures
+from oxitest import Fixtures
 
 fixtures = Fixtures()
+
 
 @fixtures.fixture
 def host() -> Host:

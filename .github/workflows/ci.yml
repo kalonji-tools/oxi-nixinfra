@@ -6,57 +6,39 @@ on:
   pull_request:
 
 jobs:
-  rust:
-    name: Rust checks
+  check:
+    name: Check & test
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: cachix/install-nix-action@v31
+
+      - uses: cachix/cachix-action@v16
         with:
-          components: rustfmt, clippy
+          name: devenv
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
+      - name: Install devenv
+        run: nix profile install nixpkgs#devenv
 
-      - uses: Swatinem/rust-cache@v2
+      - name: Static checks
+        shell: devenv shell bash -- -e {0}
+        run: just check
 
-      - name: Check formatting
-        run: cargo fmt --check
-
-      - name: Clippy
-        run: cargo clippy -- -D warnings
-
-      - name: Unit tests
-        run: cargo test --lib
-
-  build:
-    name: Build & integration
-    runs-on: ubuntu-latest
-    needs: rust
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: dtolnay/rust-toolchain@stable
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - uses: Swatinem/rust-cache@v2
-
-      - name: Create venv and install tools
-        run: |
-          python -m venv .venv
-          .venv/bin/pip install maturin "oxitest>=1.0.0b1"
+      - name: Rust unit tests
+        shell: devenv shell bash -- -e {0}
+        run: just test-rust
 
       - name: Build extension
-        run: .venv/bin/maturin develop
+        shell: devenv shell bash -- -e {0}
+        run: just build
 
       - name: Verify imports
+        shell: devenv shell bash -- -e {0}
         run: |
-          .venv/bin/python -c "from oxi_nixinfra import Host, Service, File, User, NixPackage, NixOption, SystemInfo, AsyncHost, CommandResult; print('All imports OK')"
+          python -c "from oxi_nixinfra import Host, Service, File, User, NixPackage, NixOption, SystemInfo, AsyncHost, CommandResult; print('All imports OK')"
 
       - name: Integration tests (NixOS tests auto-skip)
-        run: .venv/bin/python -m oxitest tests/integration/ -v
+        shell: devenv shell bash -- -e {0}
+        run: just test

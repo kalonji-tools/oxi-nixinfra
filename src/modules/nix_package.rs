@@ -20,7 +20,7 @@ async fn find_store_path(inner: &HostInner, name: &str) -> Result<Option<String>
     Ok(stdout
         .lines()
         .find(|line| line.contains(name))
-        .map(|l| l.to_owned()))
+        .map(std::borrow::ToOwned::to_owned))
 }
 
 pub fn parse_version_from_store_path(store_path: &str, name: &str) -> Option<String> {
@@ -28,7 +28,9 @@ pub fn parse_version_from_store_path(store_path: &str, name: &str) -> Option<Str
     let after_hash = basename.get(33..)?;
     let name_pos = after_hash.find(name)?;
     let after_name = &after_hash[name_pos + name.len()..];
-    after_name.strip_prefix('-').map(|v| v.to_owned())
+    after_name
+        .strip_prefix('-')
+        .map(std::borrow::ToOwned::to_owned)
 }
 
 pub async fn is_installed_impl(inner: &HostInner, name: &str) -> Result<bool, BackendError> {

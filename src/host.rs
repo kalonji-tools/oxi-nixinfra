@@ -15,7 +15,7 @@ use crate::helpers::{backend_err_to_py, extract_args, wrap_sync};
 // Connection string parsing
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Scheme {
     Local,
     Ssh {
@@ -132,7 +132,7 @@ impl Host {
     fn run(&self, args: &Bound<'_, PyTuple>) -> PyResult<CommandResult> {
         let parts = extract_args(args)?;
         let program = &parts[0];
-        let str_args: Vec<&str> = parts[1..].iter().map(|s| s.as_str()).collect();
+        let str_args: Vec<&str> = parts[1..].iter().map(std::string::String::as_str).collect();
         let command_display = parts.join(" ");
         let raw = wrap_sync(&self.inner, self.inner.execute(program, &str_args))?;
         Ok(CommandResult::from_raw(raw, command_display))
@@ -163,7 +163,7 @@ impl Host {
     fn user(&self, name: Option<&str>) -> crate::modules::user::User {
         crate::modules::user::User {
             inner: self.inner.clone(),
-            name: name.map(|n| n.to_owned()),
+            name: name.map(std::borrow::ToOwned::to_owned),
         }
     }
 
@@ -207,7 +207,7 @@ impl AsyncHost {
         let inner = Arc::clone(&self.inner);
         pyo3_async_runtimes::tokio::future_into_py(py, async move {
             let program = &parts[0];
-            let str_args: Vec<&str> = parts[1..].iter().map(|s| s.as_str()).collect();
+            let str_args: Vec<&str> = parts[1..].iter().map(std::string::String::as_str).collect();
             let command_display = parts.join(" ");
             let raw = inner
                 .execute(program, &str_args)
@@ -235,7 +235,7 @@ impl AsyncHost {
     fn user(&self, name: Option<&str>) -> crate::modules::user::AsyncUser {
         crate::modules::user::AsyncUser {
             inner: self.inner.clone(),
-            name: name.map(|n| n.to_owned()),
+            name: name.map(std::borrow::ToOwned::to_owned),
         }
     }
 

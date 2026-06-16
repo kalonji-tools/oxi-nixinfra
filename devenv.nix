@@ -19,6 +19,7 @@ in
   packages = with pkgs; [
     maturin
     just
+    ruff
   ];
 
   env = {
