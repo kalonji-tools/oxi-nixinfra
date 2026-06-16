@@ -1,0 +1,60 @@
+name: Bug Report
+description: File a bug report
+title: "[bug]: "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Steps to Reproduce
+      description: Step-by-step instructions to reproduce the behaviour.
+      placeholder: |
+        1. Create a test file `test_example.py` with:
+           ```python
+           from oxi_nixinfra import Host
+
+           host = Host()
+
+           def test_service():
+               assert host.service("nix-daemon").is_running
+           ```
+        2. Run `python -m oxitest test_example.py`
+        3. Observe the output / error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behaviour
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behaviour
+      description: What actually happened? Include full error messages and tracebacks.
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Provide your environment details.
+      placeholder: |
+        oxi-nixinfra: 0.1.0
+        oxitest: 1.0.0
+        python: 3.12.3
+        rustc: 1.78.0
+        os: NixOS 24.11 x86_64
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Logs, screenshots, or anything else that might help.
