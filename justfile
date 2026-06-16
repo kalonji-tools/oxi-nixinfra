@@ -39,17 +39,20 @@ test *args: (_log _blue "Running integration tests...")
 test-rust *args: (_log _blue "Running Rust tests...")
     cargo test {{args}}
 
-# Run all static checks (format, clippy)
+# Run all static checks (format, lint, clippy)
 check: (_log _blue "Running static checks...")
+    ruff format --check python/ tests/
     cargo fmt --check
+    ruff check python/ tests/
     cargo clippy -- -D warnings
 
 # Full pre-push gate: clean, check, test everything
 preflight: clean check test-rust build test
     @just _log {{_green}} "Preflight passed"
 
-# Format Rust code
+# Format code
 fmt *args: (_log _yellow "Formatting...")
+    ruff format python/ tests/
     cargo fmt {{args}}
 
 # Remove build artifacts
@@ -61,7 +64,7 @@ clean: (_log _red "Removing build artifacts...")
 health:
     #!/usr/bin/env bash
     missing=0
-    for cmd in cargo maturin python3 just; do
+    for cmd in cargo maturin python3 just ruff; do
         if command -v "$cmd" > /dev/null 2>&1; then
             printf '  ✓ %s (%s)\n' "$cmd" "$(command -v "$cmd")"
         else

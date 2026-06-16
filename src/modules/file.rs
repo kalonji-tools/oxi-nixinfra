@@ -116,7 +116,7 @@ pub async fn md5sum_impl(inner: &HostInner, path: &str) -> Result<String, Backen
     stdout
         .split_whitespace()
         .next()
-        .map(|s| s.to_owned())
+        .map(std::borrow::ToOwned::to_owned)
         .ok_or_else(|| BackendError::Execution(format!("failed to parse md5sum for: {path}")))
 }
 
@@ -126,14 +126,14 @@ pub async fn sha256sum_impl(inner: &HostInner, path: &str) -> Result<String, Bac
     stdout
         .split_whitespace()
         .next()
-        .map(|s| s.to_owned())
+        .map(std::borrow::ToOwned::to_owned)
         .ok_or_else(|| BackendError::Execution(format!("failed to parse sha256sum for: {path}")))
 }
 
 pub async fn listdir_impl(inner: &HostInner, path: &str) -> Result<Vec<String>, BackendError> {
     let out = inner.execute("ls", &["-1", "-q", "--", path]).await?;
     let stdout = String::from_utf8_lossy(&out.stdout);
-    Ok(stdout.lines().map(|l| l.to_owned()).collect())
+    Ok(stdout.lines().map(std::borrow::ToOwned::to_owned).collect())
 }
 
 // ---------------------------------------------------------------------------
