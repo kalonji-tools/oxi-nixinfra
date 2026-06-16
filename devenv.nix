@@ -23,6 +23,8 @@ in
     prek
     git-cliff
     codespell
+    mdbook
+    mdbook-mermaid
   ];
 
   env = {

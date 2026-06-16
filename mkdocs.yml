@@ -1,0 +1,84 @@
+site_name: oxi-nixinfra
+site_description: NixOS infrastructure testing library — oxitest plugin, Rust core.
+docs_dir: docs/user
+site_dir: docs/site
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+    - content.code.annotate
+    - search.highlight
+    - search.suggest
+
+plugins:
+  - search
+  - git-revision-date-localized:
+      enable_creation_date: true
+      fallback_to_build_date: true
+  - minify:
+      minify_html: true
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Tutorials:
+    - Getting started: tutorials/getting-started.md
+  - How-to guides:
+    - Configure connection: how-to/configure-connection.md
+    - Test services: how-to/test-services.md
+    - Test files: how-to/test-files.md
+    - Test users: how-to/test-users.md
+    - Test Nix packages: how-to/test-nix-packages.md
+    - Test NixOS options: how-to/test-nix-options.md
+    - Use async tests: how-to/use-async-tests.md
+    - Migrate from testinfra: how-to/migrate-from-testinfra.md
+  - Reference:
+    - Configuration: reference/configuration.md
+    - Host: reference/host.md
+    - CommandResult: reference/command-result.md
+    - Modules:
+      - Service: reference/modules/service.md
+      - File: reference/modules/file.md
+      - User: reference/modules/user.md
+      - NixPackage: reference/modules/nix-package.md
+      - NixOption: reference/modules/nix-option.md
+      - SystemInfo: reference/modules/system-info.md
+  - Explanation:
+    - Why NixOS only: explanation/why-nixos-only.md
+    - Architecture: explanation/architecture.md
+    - Async-first design: explanation/async-first-design.md
