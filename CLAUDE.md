@@ -51,6 +51,7 @@ just
 **5. Implement via subagents or inline.** Use `superpowers:subagent-driven-development` or `superpowers:executing-plans`.
 
 **6. Merge rules.**
+- **Never push directly to main.** All changes go through pull requests.
 - Only `--rebase` merge is allowed. Never squash merge, never merge commits.
 - Every commit message title MUST include its related issue number: `feat: add Foo (#42)`
 - Multiple issues per commit are fine: `feat: add Bar and Baz (#43, #44)`
