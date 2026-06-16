@@ -1,4 +1,5 @@
 """oxi-nixinfra: NixOS infrastructure testing library."""
+from oxi_nixinfra._plugin import is_nixos
 from oxi_nixinfra._oxi_nixinfra import (
     Host,
     AsyncHost,
@@ -18,6 +19,7 @@ from oxi_nixinfra._oxi_nixinfra import (
 )
 
 __all__ = [
+    "is_nixos",
     "Host",
     "AsyncHost",
     "CommandResult",

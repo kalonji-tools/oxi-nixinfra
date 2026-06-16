@@ -50,11 +50,7 @@ pub async fn groups_impl(inner: &HostInner, name: &str) -> Result<Vec<String>, B
     Ok(stdout.split_whitespace().map(|s| s.to_owned()).collect())
 }
 
-async fn getent_field(
-    inner: &HostInner,
-    name: &str,
-    index: usize,
-) -> Result<String, BackendError> {
+async fn getent_field(inner: &HostInner, name: &str, index: usize) -> Result<String, BackendError> {
     let out = inner.execute("getent", &["passwd", name]).await?;
     let stdout = String::from_utf8_lossy(&out.stdout);
     let line = stdout.trim();

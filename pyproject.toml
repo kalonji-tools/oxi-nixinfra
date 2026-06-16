@@ -19,8 +19,3 @@ plugins = ["oxi_nixinfra._plugin"]
 markers = ["nixos: test requires NixOS"]
 
 [tool.oxitest.plugin_settings.oxi_nixinfra._plugin]
-
-[dependency-groups]
-dev = [
-  { path = "../oxitest.main", editable = true },
-]

@@ -34,7 +34,7 @@ in
       ln -snf "$UV_PROJECT_ENVIRONMENT" .venv
     fi
 
-    # Build oxitest .so if missing or stale
+    # Build oxitest .so if missing or stale, then install editable
     OXITEST_DIR="../oxitest.main"
     if [ -d "$OXITEST_DIR/src" ]; then
       PY_VER=$(python3 -c 'import sys; print(f"cpython-{sys.version_info[0]}{sys.version_info[1]}")')
@@ -46,6 +46,8 @@ in
         echo "oxitest Rust source changed, rebuilding..."
         (cd "$OXITEST_DIR" && just build)
       fi
+      # Install editable oxitest into this project's venv
+      uv pip install -e "$OXITEST_DIR" --quiet 2>/dev/null || true
     fi
 
     # Build oxi-nixinfra .so if missing or stale

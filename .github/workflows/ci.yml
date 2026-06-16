@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  rust:
+    name: Rust checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Check formatting
+        run: cargo fmt --check
+
+      - name: Clippy
+        run: cargo clippy -- -D warnings
+
+      - name: Unit tests
+        run: cargo test --lib
+
+  build:
+    name: Build & integration
+    runs-on: ubuntu-latest
+    needs: rust
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Create venv and install tools
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install maturin "oxitest>=1.0.0b1"
+
+      - name: Build extension
+        run: .venv/bin/maturin develop
+
+      - name: Verify imports
+        run: |
+          .venv/bin/python -c "from oxi_nixinfra import Host, Service, File, User, NixPackage, NixOption, SystemInfo, AsyncHost, CommandResult; print('All imports OK')"
+
+      - name: Integration tests (NixOS tests auto-skip)
+        run: .venv/bin/python -m oxitest tests/integration/ -v

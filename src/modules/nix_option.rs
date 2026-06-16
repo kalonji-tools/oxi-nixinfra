@@ -125,10 +125,12 @@ mod tests {
             stdout: b"Value:\n  true\n".to_vec(),
             stderr: vec![],
         }]);
-        assert!(inner
-            .runtime
-            .block_on(exists_impl(&inner, "services.openssh.enable"))
-            .unwrap());
+        assert!(
+            inner
+                .runtime
+                .block_on(exists_impl(&inner, "services.openssh.enable"))
+                .unwrap()
+        );
     }
 
     #[test]
@@ -138,10 +140,12 @@ mod tests {
             stdout: vec![],
             stderr: b"error: option not found\n".to_vec(),
         }]);
-        assert!(!inner
-            .runtime
-            .block_on(exists_impl(&inner, "services.nonexistent"))
-            .unwrap());
+        assert!(
+            !inner
+                .runtime
+                .block_on(exists_impl(&inner, "services.nonexistent"))
+                .unwrap()
+        );
     }
 
     #[test]
