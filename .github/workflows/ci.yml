@@ -5,40 +5,118 @@ on:
     branches: [main]
   pull_request:
 
-jobs:
-  check:
-    name: Check & test
-    runs-on: ubuntu-latest
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            code:
+              - 'src/**'
+              - 'python/**'
+              - 'Cargo.*'
+              - 'pyproject.toml'
+              - '.github/**'
+              - 'justfile'
+              - 'devenv.nix'
+              - 'tests/**'
+
+  check:
+    name: Static checks
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      VIRTUAL_ENV: ${{ github.workspace }}/.venv
     steps:
       - uses: actions/checkout@v5
 
-      - uses: cachix/install-nix-action@v31
-
-      - uses: cachix/cachix-action@v16
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          name: devenv
+          components: rustfmt, clippy
 
-      - name: Install devenv
-        run: nix profile install nixpkgs#devenv
+      - uses: Swatinem/rust-cache@v2
 
-      - name: Static checks
-        shell: devenv shell bash -- -e {0}
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: just
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Install code-quality tools
+        run: |
+          uv sync --group code-quality
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+
+      - name: Run checks
         run: just check
 
+  test:
+    name: Build & test
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      VIRTUAL_ENV: ${{ github.workspace }}/.venv
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: just
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: |
+          uv sync --group test
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+
       - name: Rust unit tests
-        shell: devenv shell bash -- -e {0}
         run: just test-rust
 
       - name: Build extension
-        shell: devenv shell bash -- -e {0}
         run: just build
 
-      - name: Verify imports
-        shell: devenv shell bash -- -e {0}
-        run: |
-          python -c "from oxi_nixinfra import Host, Service, File, User, NixPackage, NixOption, SystemInfo, AsyncHost, CommandResult; print('All imports OK')"
-
-      - name: Integration tests (NixOS tests auto-skip)
-        shell: devenv shell bash -- -e {0}
+      - name: Integration tests
         run: just test
+
+  required:
+    name: CI (required)
+    needs: [check, test]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check results
+        shell: bash
+        run: |
+          if [[ "${{ needs.check.result }}" =~ ^(failure|cancelled)$ || "${{ needs.test.result }}" =~ ^(failure|cancelled)$ ]]; then
+            echo "One or more jobs failed or were cancelled"
+            exit 1
+          fi
+          echo "All jobs passed or were skipped"
