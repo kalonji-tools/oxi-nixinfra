@@ -13,3 +13,8 @@ license = "MIT"
 features = ["pyo3/extension-module"]
 python-source = "python"
 module-name = "oxi_nixinfra._oxi_nixinfra"
+
+[dependency-groups]
+dev = [
+  { path = "../oxitest.main", editable = true },
+]
