@@ -61,6 +61,24 @@ fmt *args: (_log _yellow "Formatting...")
 changelog *args: (_log _green "Generating changelog...")
     git-cliff {{args}} -o CHANGELOG.md
 
+# Build all documentation (user docs + internals book)
+docs-build: (_log _green "Building all docs...")
+    uv run --group docs mkdocs build --strict
+    mdbook build docs/internals
+
+# Serve docs locally (user :8000, internals :3000)
+docs-serve: (_log _green "Starting doc servers...")
+    uv run --group docs mkdocs serve --dev-addr localhost:8000 &
+    mdbook serve docs/internals --port 3000 &
+    @just _log {{_green}} "User docs:      http://localhost:8000"
+    @just _log {{_green}} "Internals book: http://localhost:3000"
+    @just _log {{_green}} "Stop with: just docs-stop"
+
+# Stop background doc servers
+docs-stop: (_log _red "Stopping doc servers...")
+    -pkill -f "mkdocs serve"
+    -pkill -f "mdbook serve"
+
 # Remove build artifacts
 clean: (_log _red "Removing build artifacts...")
     cargo clean
@@ -70,7 +88,7 @@ clean: (_log _red "Removing build artifacts...")
 health:
     #!/usr/bin/env bash
     missing=0
-    for cmd in cargo maturin python3 just ruff prek git-cliff codespell; do
+    for cmd in cargo maturin python3 just ruff prek git-cliff codespell mdbook mdbook-mermaid; do
         if command -v "$cmd" > /dev/null 2>&1; then
             printf '  ✓ %s (%s)\n' "$cmd" "$(command -v "$cmd")"
         else
