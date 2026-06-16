@@ -1,0 +1,29 @@
+# Configuration file for `prek`, a git hook framework written in Rust.
+# See https://prek.j178.dev for more information.
+
+[[repos]]
+repo = "builtin"
+hooks = [
+  { id = "trailing-whitespace", exclude = "^graphify-out/" },
+  { id = "end-of-file-fixer", exclude = "(\\.snap$|^graphify-out/)" },
+  { id = "check-toml" },
+  { id = "no-commit-to-branch", args = ["-b", "main"] },
+]
+
+[[repos]]
+repo = "local"
+
+[[repos.hooks]]
+id = "check"
+name = "just check"
+language = "system"
+entry = "just check"
+pass_filenames = false
+
+[[repos.hooks]]
+id = "preflight"
+name = "just preflight"
+language = "system"
+entry = "just preflight"
+pass_filenames = false
+stages = ["pre-push"]

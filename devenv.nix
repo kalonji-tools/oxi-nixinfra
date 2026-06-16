@@ -20,11 +20,24 @@ in
     maturin
     just
     ruff
+    prek
   ];
 
   env = {
     RUST_BACKTRACE = "1";
     PYO3_PYTHON = "${pythonEnv}/bin/python3";
+  };
+
+  tasks."oxi-nixinfra:install-hooks" = {
+    exec = ''
+      if git rev-parse --git-dir > /dev/null 2>&1; then
+        git config --unset core.hooksPath 2>/dev/null || true
+        prek install --quiet
+        HOOKS_DIR="$(git rev-parse --git-common-dir)/hooks"
+        git config core.hooksPath "$HOOKS_DIR"
+      fi
+    '';
+    before = [ "devenv:enterShell" ];
   };
 
   enterShell = ''
