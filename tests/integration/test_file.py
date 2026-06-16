@@ -43,3 +43,25 @@ def test_file_mode(host: Fixture[Host]):
     mode = host.file("/etc/os-release").mode()
     assert isinstance(mode, int), f"mode() returned {type(mode).__name__}, expected int"
     assert mode > 0, f"mode is {oct(mode)}, expected a positive octal value"
+
+
+@oxitest.mark.nixos
+def test_etc_hosts_is_nix_managed(host: Fixture[Host]):
+    assert host.file("/etc/hosts").is_nix_managed(), (
+        "/etc/hosts should be NixOS-managed on NixOS"
+    )
+
+
+@oxitest.mark.nixos
+def test_etc_hosts_store_path(host: Fixture[Host]):
+    path = host.file("/etc/hosts").store_path()
+    assert path is not None, "/etc/hosts store_path should not be None"
+    assert path.startswith("/nix/store/"), (
+        f"/etc/hosts store_path should start with /nix/store/, got {path!r}"
+    )
+
+
+def test_nonexistent_file_not_nix_managed(host: Fixture[Host]):
+    assert not host.file("/nonexistent-path-12345").is_nix_managed(), (
+        "nonexistent file should not be NixOS-managed"
+    )
