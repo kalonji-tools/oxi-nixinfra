@@ -14,10 +14,25 @@ def test_nix_daemon_running(host: Fixture[Host]):
 
 
 @oxitest.mark.nixos
-def test_accounts_daemon_enabled(host: Fixture[Host]):
-    svc = host.service("accounts-daemon")
-    assert svc.is_enabled(), (
-        "accounts-daemon is not enabled — check systemctl is-enabled accounts-daemon"
+def test_nix_daemon_is_managed(host: Fixture[Host]):
+    svc = host.service("nix-daemon")
+    assert svc.is_managed(), (
+        "nix-daemon should be NixOS-managed (symlink to /nix/store/)"
+    )
+
+
+@oxitest.mark.nixos
+def test_nix_daemon_enablement_status(host: Fixture[Host]):
+    status = host.service("nix-daemon").enablement_status()
+    assert status == "linked", f"nix-daemon should be 'linked' on NixOS, got {status!r}"
+
+
+@oxitest.mark.nixos
+def test_nix_daemon_store_path(host: Fixture[Host]):
+    path = host.service("nix-daemon").store_path()
+    assert path is not None, "nix-daemon store_path should not be None"
+    assert path.startswith("/nix/store/"), (
+        f"nix-daemon store_path should start with /nix/store/, got {path!r}"
     )
 
 
@@ -30,6 +45,11 @@ def test_nix_daemon_exists(host: Fixture[Host]):
 def test_nonexistent_service(host: Fixture[Host]):
     svc = host.service("nonexistent-service-12345")
     assert not svc.exists(), "fabricated service name should not match any unit file"
+
+
+def test_nonexistent_service_not_managed(host: Fixture[Host]):
+    svc = host.service("nonexistent-service-12345")
+    assert not svc.is_managed(), "fabricated service should not be NixOS-managed"
 
 
 @oxitest.mark.nixos
