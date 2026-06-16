@@ -21,6 +21,7 @@ in
     just
     ruff
     prek
+    git-cliff
   ];
 
   env = {

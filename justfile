@@ -55,6 +55,10 @@ fmt *args: (_log _yellow "Formatting...")
     ruff format python/ tests/
     cargo fmt {{args}}
 
+# Generate CHANGELOG.md from conventional commits
+changelog *args: (_log _green "Generating changelog...")
+    git-cliff {{args}} -o CHANGELOG.md
+
 # Remove build artifacts
 clean: (_log _red "Removing build artifacts...")
     cargo clean
@@ -64,7 +68,7 @@ clean: (_log _red "Removing build artifacts...")
 health:
     #!/usr/bin/env bash
     missing=0
-    for cmd in cargo maturin python3 just ruff prek; do
+    for cmd in cargo maturin python3 just ruff prek git-cliff; do
         if command -v "$cmd" > /dev/null 2>&1; then
             printf '  ✓ %s (%s)\n' "$cmd" "$(command -v "$cmd")"
         else
