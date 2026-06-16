@@ -1,0 +1,78 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_override:
+        description: 'Override version (e.g. 1.0.0). Leave empty for auto-bump.'
+        required: false
+
+permissions: {}
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_PLZ_TOKEN }}
+
+      - name: Install git-cliff
+        uses: taiki-e/install-action@v2
+        with:
+          tool: git-cliff
+
+      - name: Verify latest tag is reachable
+        run: |
+          CURRENT=$(grep '^version' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
+          TAG="v${CURRENT}"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            if ! git merge-base --is-ancestor "$TAG" HEAD; then
+              echo "::error::Tag $TAG exists but is not an ancestor of HEAD."
+              echo "::error::This happens when rebase merges rewrite commit SHAs."
+              echo "::error::Fix: git tag -f -a $TAG <correct-sha> -m $TAG && git push origin --force $TAG"
+              exit 1
+            fi
+          fi
+
+      - name: Compute next version
+        id: version
+        run: |
+          CURRENT=$(grep '^version' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
+          if [ -n "${{ inputs.version_override }}" ]; then
+            NEXT="${{ inputs.version_override }}"
+          else
+            NEXT=$(git-cliff --bumped-version | sed 's/^v//')
+          fi
+          echo "current=$CURRENT" >> "$GITHUB_OUTPUT"
+          echo "next=$NEXT" >> "$GITHUB_OUTPUT"
+          if [ "$CURRENT" = "$NEXT" ]; then
+            echo "::error::No releasable commits since v$CURRENT"
+            exit 1
+          fi
+          echo "Bumping $CURRENT -> $NEXT"
+
+      - name: Update changelog
+        run: |
+          git-cliff --tag "v${{ steps.version.outputs.next }}" -o CHANGELOG.md
+          sed -i -e :a -e '/^\n*$/{$d;N;ba' -e '}' CHANGELOG.md
+
+      - name: Update Cargo.toml version
+        run: sed -i "0,/^version = .*/s//version = \"${{ steps.version.outputs.next }}\"/" Cargo.toml
+
+      - name: Update Cargo.lock
+        run: cargo update --workspace
+
+      - name: Commit and tag
+        run: |
+          VERSION="${{ steps.version.outputs.next }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md Cargo.toml Cargo.lock
+          git commit -m "release: v${VERSION}"
+          git tag -a "v${VERSION}" -m "v${VERSION}"
+          git push origin main --follow-tags
