@@ -110,6 +110,26 @@ pub async fn contains_impl(
     Ok(out.rc == 0)
 }
 
+pub async fn is_nix_managed_impl(inner: &HostInner, path: &str) -> Result<bool, BackendError> {
+    let out = inner.execute("readlink", &["-f", path]).await?;
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    Ok(out.rc == 0 && stdout.trim().starts_with("/nix/store/"))
+}
+
+pub async fn file_store_path_impl(
+    inner: &HostInner,
+    path: &str,
+) -> Result<Option<String>, BackendError> {
+    let out = inner.execute("readlink", &["-f", path]).await?;
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let resolved = stdout.trim();
+    if out.rc == 0 && resolved.starts_with("/nix/store/") {
+        Ok(Some(resolved.to_owned()))
+    } else {
+        Ok(None)
+    }
+}
+
 pub async fn md5sum_impl(inner: &HostInner, path: &str) -> Result<String, BackendError> {
     let out = inner.execute("md5sum", &[path]).await?;
     let stdout = String::from_utf8_lossy(&out.stdout);
@@ -222,6 +242,14 @@ impl File {
 
     fn listdir(&self) -> PyResult<Vec<String>> {
         crate::helpers::wrap_sync(&self.inner, listdir_impl(&self.inner, &self.path))
+    }
+
+    fn is_nix_managed(&self) -> PyResult<bool> {
+        crate::helpers::wrap_sync(&self.inner, is_nix_managed_impl(&self.inner, &self.path))
+    }
+
+    fn store_path(&self) -> PyResult<Option<String>> {
+        crate::helpers::wrap_sync(&self.inner, file_store_path_impl(&self.inner, &self.path))
     }
 
     fn __repr__(&self) -> String {
@@ -432,6 +460,26 @@ impl AsyncFile {
         })
     }
 
+    fn is_nix_managed<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        let inner = self.inner.clone();
+        let path = self.path.clone();
+        pyo3_async_runtimes::tokio::future_into_py(py, async move {
+            is_nix_managed_impl(&inner, &path)
+                .await
+                .map_err(crate::helpers::backend_err_to_py)
+        })
+    }
+
+    fn store_path<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        let inner = self.inner.clone();
+        let path = self.path.clone();
+        pyo3_async_runtimes::tokio::future_into_py(py, async move {
+            file_store_path_impl(&inner, &path)
+                .await
+                .map_err(crate::helpers::backend_err_to_py)
+        })
+    }
+
     fn __repr__(&self) -> String {
         format!("<AsyncFile {}>", self.path)
     }
@@ -524,6 +572,68 @@ mod tests {
                 .runtime
                 .block_on(contains_impl(&inner, "/etc/hosts", "nonexistent"))
                 .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_is_nix_managed_true() {
+        let inner = make_inner(vec![RawOutput {
+            rc: 0,
+            stdout: b"/nix/store/h0p1rl4srn0j3arkiahpwrv8fp8vpp8l-hosts\n".to_vec(),
+            stderr: vec![],
+        }]);
+        assert!(
+            inner
+                .runtime
+                .block_on(is_nix_managed_impl(&inner, "/etc/hosts"))
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_is_nix_managed_false() {
+        let inner = make_inner(vec![RawOutput {
+            rc: 0,
+            stdout: b"/etc/resolv.conf\n".to_vec(),
+            stderr: vec![],
+        }]);
+        assert!(
+            !inner
+                .runtime
+                .block_on(is_nix_managed_impl(&inner, "/etc/resolv.conf"))
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_file_store_path_some() {
+        let inner = make_inner(vec![RawOutput {
+            rc: 0,
+            stdout: b"/nix/store/x1nwcwf197wb5d7infxr4il5l4gzpdp3-nix.conf\n".to_vec(),
+            stderr: vec![],
+        }]);
+        assert_eq!(
+            inner
+                .runtime
+                .block_on(file_store_path_impl(&inner, "/etc/nix/nix.conf"))
+                .unwrap(),
+            Some("/nix/store/x1nwcwf197wb5d7infxr4il5l4gzpdp3-nix.conf".to_owned())
+        );
+    }
+
+    #[test]
+    fn test_file_store_path_none() {
+        let inner = make_inner(vec![RawOutput {
+            rc: 0,
+            stdout: b"/etc/passwd\n".to_vec(),
+            stderr: vec![],
+        }]);
+        assert_eq!(
+            inner
+                .runtime
+                .block_on(file_store_path_impl(&inner, "/etc/passwd"))
+                .unwrap(),
+            None
         );
     }
 
