@@ -52,6 +52,7 @@ just
 
 **6. Merge rules.**
 - **Never push directly to main.** All changes go through pull requests.
+- **Never merge without approval.** Wait for either a GitHub review approval or an explicit user command (e.g., "merge", "merge rebase delete branch"). Do not auto-merge after CI passes.
 - Only `--rebase` merge is allowed. Never squash merge, never merge commits.
 - Every commit message title MUST include its related issue number: `feat: add Foo (#42)`
 - Multiple issues per commit are fine: `feat: add Bar and Baz (#43, #44)`
