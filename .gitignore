@@ -44,3 +44,4 @@ graphify-out/.graphify_root
 .devenv/
 .devenv.flake.nix
 .oxitest_cache/
+docs/specs/
