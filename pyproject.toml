@@ -36,7 +36,7 @@ select = ["E", "F", "I", "UP", "B", "A", "C4", "SIM", "RET", "PTH", "PERF"]
 combine-as-imports = true
 
 [tool.codespell]
-skip = "target,.venv,Cargo.lock,.git,graphify-out"
+skip = "target,.venv,Cargo.lock,.git,graphify-out,*.min.js,*/docs/site/*,*/docs/internals/book/*"
 
 [dependency-groups]
 build = ["maturin>=1.0,<2.0"]
