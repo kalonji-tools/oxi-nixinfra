@@ -8,6 +8,7 @@ version = "0.1.0"
 description = "NixOS infrastructure testing library — oxitest plugin, Rust core"
 requires-python = ">=3.12"
 license = "MIT"
+dependencies = ["oxitest>=1.0.0b1"]
 
 [tool.maturin]
 features = ["pyo3/extension-module"]
@@ -17,5 +18,19 @@ module-name = "oxi_nixinfra._oxi_nixinfra"
 [tool.oxitest]
 plugins = ["oxi_nixinfra._plugin"]
 markers = ["nixos: test requires NixOS"]
+strict = "abort"
 
 [tool.oxitest.plugin_settings.oxi_nixinfra._plugin]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "A", "C4", "SIM", "RET", "PTH", "PERF"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B011", "B017", "B018"]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true

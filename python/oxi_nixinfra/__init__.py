@@ -1,22 +1,23 @@
 """oxi-nixinfra: NixOS infrastructure testing library."""
-from oxi_nixinfra._plugin import is_nixos
+
 from oxi_nixinfra._oxi_nixinfra import (
-    Host,
-    AsyncHost,
-    CommandResult,
-    Service,
-    AsyncService,
-    File,
     AsyncFile,
-    User,
-    AsyncUser,
-    NixPackage,
-    AsyncNixPackage,
-    NixOption,
+    AsyncHost,
     AsyncNixOption,
-    SystemInfo,
+    AsyncNixPackage,
+    AsyncService,
     AsyncSystemInfo,
+    AsyncUser,
+    CommandResult,
+    File,
+    Host,
+    NixOption,
+    NixPackage,
+    Service,
+    SystemInfo,
+    User,
 )
+from oxi_nixinfra._plugin import is_nixos
 
 __all__ = [
     "is_nixos",
