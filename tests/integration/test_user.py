@@ -1,5 +1,6 @@
 """Integration tests for User module."""
 
+import oxitest
 from oxi_nixinfra import Host
 from oxitest import Fixture
 
@@ -28,3 +29,16 @@ def test_current_user(host: Fixture[Host]):
     name = host.user().name()
     assert isinstance(name, str), f"name() returned {type(name).__name__}, expected str"
     assert len(name) > 0, "'id -nu' returned an empty username"
+
+
+@oxitest.mark.nixos
+def test_root_is_declared(host: Fixture[Host]):
+    assert host.user("root").is_declared(), (
+        "root should be declared in NixOS users-groups.json"
+    )
+
+
+def test_nonexistent_user_not_declared(host: Fixture[Host]):
+    assert not host.user("nonexistent-user-12345").is_declared(), (
+        "fabricated user should not be in NixOS users-groups.json"
+    )
