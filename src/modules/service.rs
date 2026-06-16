@@ -15,9 +15,38 @@ pub async fn is_running_impl(inner: &HostInner, name: &str) -> Result<bool, Back
     Ok(out.rc == 0)
 }
 
-pub async fn is_enabled_impl(inner: &HostInner, name: &str) -> Result<bool, BackendError> {
-    let out = inner.execute("systemctl", &["is-enabled", name]).await?;
-    Ok(out.rc == 0)
+pub async fn is_managed_impl(inner: &HostInner, name: &str) -> Result<bool, BackendError> {
+    let path = format!("/etc/systemd/system/{name}.service");
+    let out = inner.execute("readlink", &["-f", &path]).await?;
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let resolved = stdout.trim();
+    Ok(out.rc == 0 && resolved.starts_with("/nix/store/"))
+}
+
+pub async fn store_path_impl(
+    inner: &HostInner,
+    name: &str,
+) -> Result<Option<String>, BackendError> {
+    let path = format!("/etc/systemd/system/{name}.service");
+    let out = inner.execute("readlink", &["-f", &path]).await?;
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let resolved = stdout.trim();
+    if out.rc == 0 && resolved.starts_with("/nix/store/") {
+        Ok(Some(resolved.to_owned()))
+    } else {
+        Ok(None)
+    }
+}
+
+pub async fn enablement_status_impl(inner: &HostInner, name: &str) -> Result<String, BackendError> {
+    let out = inner
+        .execute(
+            "systemctl",
+            &["show", name, "-p", "UnitFileState", "--value"],
+        )
+        .await?;
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    Ok(stdout.trim().to_owned())
 }
 
 pub async fn exists_impl(inner: &HostInner, name: &str) -> Result<bool, BackendError> {
@@ -26,12 +55,6 @@ pub async fn exists_impl(inner: &HostInner, name: &str) -> Result<bool, BackendE
         .await?;
     let stdout = String::from_utf8_lossy(&out.stdout);
     Ok(stdout.lines().any(|line| line.starts_with(name)))
-}
-
-pub async fn is_masked_impl(inner: &HostInner, name: &str) -> Result<bool, BackendError> {
-    let out = inner.execute("systemctl", &["is-enabled", name]).await?;
-    let stdout = String::from_utf8_lossy(&out.stdout);
-    Ok(stdout.trim() == "masked")
 }
 
 pub async fn is_valid_impl(inner: &HostInner, name: &str) -> Result<bool, BackendError> {
@@ -75,16 +98,20 @@ impl Service {
         crate::helpers::wrap_sync(&self.inner, is_running_impl(&self.inner, &self.name))
     }
 
-    fn is_enabled(&self) -> PyResult<bool> {
-        crate::helpers::wrap_sync(&self.inner, is_enabled_impl(&self.inner, &self.name))
+    fn is_managed(&self) -> PyResult<bool> {
+        crate::helpers::wrap_sync(&self.inner, is_managed_impl(&self.inner, &self.name))
+    }
+
+    fn enablement_status(&self) -> PyResult<String> {
+        crate::helpers::wrap_sync(&self.inner, enablement_status_impl(&self.inner, &self.name))
+    }
+
+    fn store_path(&self) -> PyResult<Option<String>> {
+        crate::helpers::wrap_sync(&self.inner, store_path_impl(&self.inner, &self.name))
     }
 
     fn exists(&self) -> PyResult<bool> {
         crate::helpers::wrap_sync(&self.inner, exists_impl(&self.inner, &self.name))
-    }
-
-    fn is_masked(&self) -> PyResult<bool> {
-        crate::helpers::wrap_sync(&self.inner, is_masked_impl(&self.inner, &self.name))
     }
 
     fn is_valid(&self) -> PyResult<bool> {
@@ -122,11 +149,31 @@ impl AsyncService {
         })
     }
 
-    fn is_enabled<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+    fn is_managed<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         let inner = self.inner.clone();
         let name = self.name.clone();
         pyo3_async_runtimes::tokio::future_into_py(py, async move {
-            is_enabled_impl(&inner, &name)
+            is_managed_impl(&inner, &name)
+                .await
+                .map_err(crate::helpers::backend_err_to_py)
+        })
+    }
+
+    fn enablement_status<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        let inner = self.inner.clone();
+        let name = self.name.clone();
+        pyo3_async_runtimes::tokio::future_into_py(py, async move {
+            enablement_status_impl(&inner, &name)
+                .await
+                .map_err(crate::helpers::backend_err_to_py)
+        })
+    }
+
+    fn store_path<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        let inner = self.inner.clone();
+        let name = self.name.clone();
+        pyo3_async_runtimes::tokio::future_into_py(py, async move {
+            store_path_impl(&inner, &name)
                 .await
                 .map_err(crate::helpers::backend_err_to_py)
         })
@@ -137,16 +184,6 @@ impl AsyncService {
         let name = self.name.clone();
         pyo3_async_runtimes::tokio::future_into_py(py, async move {
             exists_impl(&inner, &name)
-                .await
-                .map_err(crate::helpers::backend_err_to_py)
-        })
-    }
-
-    fn is_masked<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-        let inner = self.inner.clone();
-        let name = self.name.clone();
-        pyo3_async_runtimes::tokio::future_into_py(py, async move {
-            is_masked_impl(&inner, &name)
                 .await
                 .map_err(crate::helpers::backend_err_to_py)
         })
@@ -226,32 +263,146 @@ mod tests {
     }
 
     #[test]
-    fn test_is_enabled_true() {
+    fn test_is_managed_nix_store_path() {
         let inner = make_inner(vec![RawOutput {
             rc: 0,
-            stdout: b"enabled\n".to_vec(),
+            stdout: b"/nix/store/abc123-nix-2.31.4/lib/systemd/system/nix-daemon.service\n"
+                .to_vec(),
             stderr: vec![],
         }]);
         assert!(
             inner
                 .runtime
-                .block_on(is_enabled_impl(&inner, "nix-daemon"))
+                .block_on(is_managed_impl(&inner, "nix-daemon"))
                 .unwrap()
         );
     }
 
     #[test]
-    fn test_is_enabled_false() {
+    fn test_is_managed_dev_null() {
         let inner = make_inner(vec![RawOutput {
-            rc: 1,
-            stdout: b"disabled\n".to_vec(),
+            rc: 0,
+            stdout: b"/dev/null\n".to_vec(),
             stderr: vec![],
         }]);
         assert!(
             !inner
                 .runtime
-                .block_on(is_enabled_impl(&inner, "sshd"))
+                .block_on(is_managed_impl(&inner, "console-getty"))
                 .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_is_managed_not_found() {
+        let inner = make_inner(vec![RawOutput {
+            rc: 1,
+            stdout: b"".to_vec(),
+            stderr: b"readlink: /etc/systemd/system/sshd.service: No such file or directory\n"
+                .to_vec(),
+        }]);
+        assert!(
+            !inner
+                .runtime
+                .block_on(is_managed_impl(&inner, "sshd"))
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_store_path_returns_path() {
+        let inner = make_inner(vec![RawOutput {
+            rc: 0,
+            stdout: b"/nix/store/abc123-nix-2.31.4/lib/systemd/system/nix-daemon.service\n"
+                .to_vec(),
+            stderr: vec![],
+        }]);
+        assert_eq!(
+            inner
+                .runtime
+                .block_on(store_path_impl(&inner, "nix-daemon"))
+                .unwrap(),
+            Some("/nix/store/abc123-nix-2.31.4/lib/systemd/system/nix-daemon.service".to_owned())
+        );
+    }
+
+    #[test]
+    fn test_store_path_returns_none_for_masked() {
+        let inner = make_inner(vec![RawOutput {
+            rc: 0,
+            stdout: b"/dev/null\n".to_vec(),
+            stderr: vec![],
+        }]);
+        assert_eq!(
+            inner
+                .runtime
+                .block_on(store_path_impl(&inner, "console-getty"))
+                .unwrap(),
+            None
+        );
+    }
+
+    #[test]
+    fn test_store_path_returns_none_for_not_found() {
+        let inner = make_inner(vec![RawOutput {
+            rc: 1,
+            stdout: b"".to_vec(),
+            stderr: b"readlink: No such file or directory\n".to_vec(),
+        }]);
+        assert_eq!(
+            inner
+                .runtime
+                .block_on(store_path_impl(&inner, "sshd"))
+                .unwrap(),
+            None
+        );
+    }
+
+    #[test]
+    fn test_enablement_status_linked() {
+        let inner = make_inner(vec![RawOutput {
+            rc: 0,
+            stdout: b"linked\n".to_vec(),
+            stderr: vec![],
+        }]);
+        assert_eq!(
+            inner
+                .runtime
+                .block_on(enablement_status_impl(&inner, "nix-daemon"))
+                .unwrap(),
+            "linked"
+        );
+    }
+
+    #[test]
+    fn test_enablement_status_enabled() {
+        let inner = make_inner(vec![RawOutput {
+            rc: 0,
+            stdout: b"enabled\n".to_vec(),
+            stderr: vec![],
+        }]);
+        assert_eq!(
+            inner
+                .runtime
+                .block_on(enablement_status_impl(&inner, "avahi-daemon"))
+                .unwrap(),
+            "enabled"
+        );
+    }
+
+    #[test]
+    fn test_enablement_status_masked() {
+        let inner = make_inner(vec![RawOutput {
+            rc: 0,
+            stdout: b"masked\n".to_vec(),
+            stderr: vec![],
+        }]);
+        assert_eq!(
+            inner
+                .runtime
+                .block_on(enablement_status_impl(&inner, "console-getty"))
+                .unwrap(),
+            "masked"
         );
     }
 
@@ -282,21 +433,6 @@ mod tests {
             !inner
                 .runtime
                 .block_on(exists_impl(&inner, "nix-daemon"))
-                .unwrap()
-        );
-    }
-
-    #[test]
-    fn test_is_masked() {
-        let inner = make_inner(vec![RawOutput {
-            rc: 1,
-            stdout: b"masked\n".to_vec(),
-            stderr: vec![],
-        }]);
-        assert!(
-            inner
-                .runtime
-                .block_on(is_masked_impl(&inner, "masked-svc"))
                 .unwrap()
         );
     }
