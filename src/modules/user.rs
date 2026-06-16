@@ -75,6 +75,34 @@ pub async fn shell_impl(inner: &HostInner, name: &str) -> Result<String, Backend
     getent_field(inner, name, 6).await
 }
 
+pub async fn is_declared_impl(inner: &HostInner, name: &str) -> Result<bool, BackendError> {
+    let out = inner
+        .execute(
+            "grep",
+            &[
+                "-oP",
+                r"/nix/store/[a-z0-9]+-users-groups\.json",
+                "/run/current-system/activate",
+            ],
+        )
+        .await?;
+    if out.rc != 0 {
+        return Ok(false);
+    }
+    let manifest_path = String::from_utf8_lossy(&out.stdout);
+    let manifest_path = manifest_path.trim();
+    if manifest_path.is_empty() {
+        return Ok(false);
+    }
+    let manifest = inner.execute("cat", &[manifest_path]).await?;
+    if manifest.rc != 0 {
+        return Ok(false);
+    }
+    let json = String::from_utf8_lossy(&manifest.stdout);
+    let needle = format!("\"name\":\"{name}\"");
+    Ok(json.contains(&needle))
+}
+
 /// Resolve the effective user name: use stored name if present, otherwise run `id -nu`.
 async fn resolve_name(inner: &HostInner, name: &Option<String>) -> Result<String, BackendError> {
     match name {
@@ -142,6 +170,12 @@ impl User {
         let inner = &self.inner;
         let name = crate::helpers::wrap_sync(inner, resolve_name(inner, &self.name))?;
         crate::helpers::wrap_sync(inner, shell_impl(inner, &name))
+    }
+
+    fn is_declared(&self) -> PyResult<bool> {
+        let inner = &self.inner;
+        let name = crate::helpers::wrap_sync(inner, resolve_name(inner, &self.name))?;
+        crate::helpers::wrap_sync(inner, is_declared_impl(inner, &name))
     }
 
     fn __repr__(&self) -> String {
@@ -268,6 +302,19 @@ impl AsyncUser {
         })
     }
 
+    fn is_declared<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        let inner = self.inner.clone();
+        let name = self.name.clone();
+        pyo3_async_runtimes::tokio::future_into_py(py, async move {
+            let resolved = resolve_name(&inner, &name)
+                .await
+                .map_err(crate::helpers::backend_err_to_py)?;
+            is_declared_impl(&inner, &resolved)
+                .await
+                .map_err(crate::helpers::backend_err_to_py)
+        })
+    }
+
     fn __repr__(&self) -> String {
         match &self.name {
             Some(n) => format!("<AsyncUser {n}>"),
@@ -348,5 +395,64 @@ mod tests {
             .block_on(uid_impl(&inner, "testuser"))
             .unwrap();
         assert_eq!(uid, 1000);
+    }
+
+    #[test]
+    fn test_is_declared_true() {
+        let inner = make_inner(vec![
+            RawOutput {
+                rc: 0,
+                stdout: b"/nix/store/abc123-users-groups.json\n".to_vec(),
+                stderr: vec![],
+            },
+            RawOutput {
+                rc: 0,
+                stdout: br#"{"users":[{"name":"testuser"},{"name":"root"}],"groups":[],"mutableUsers":true}"#.to_vec(),
+                stderr: vec![],
+            },
+        ]);
+        assert!(
+            inner
+                .runtime
+                .block_on(is_declared_impl(&inner, "testuser"))
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_is_declared_false() {
+        let inner = make_inner(vec![
+            RawOutput {
+                rc: 0,
+                stdout: b"/nix/store/abc123-users-groups.json\n".to_vec(),
+                stderr: vec![],
+            },
+            RawOutput {
+                rc: 0,
+                stdout: br#"{"users":[{"name":"root"}],"groups":[],"mutableUsers":true}"#.to_vec(),
+                stderr: vec![],
+            },
+        ]);
+        assert!(
+            !inner
+                .runtime
+                .block_on(is_declared_impl(&inner, "imperative-user"))
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_is_declared_no_manifest() {
+        let inner = make_inner(vec![RawOutput {
+            rc: 1,
+            stdout: b"".to_vec(),
+            stderr: vec![],
+        }]);
+        assert!(
+            !inner
+                .runtime
+                .block_on(is_declared_impl(&inner, "anyone"))
+                .unwrap()
+        );
     }
 }
