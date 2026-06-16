@@ -5,8 +5,8 @@ from oxitest import Fixture
 def test_nix_daemon_running(host: Fixture[Host]):
     assert host.service("nix-daemon").is_running()
 
-def test_nix_daemon_enabled(host: Fixture[Host]):
-    assert host.service("nix-daemon").is_enabled()
+def test_accounts_daemon_enabled(host: Fixture[Host]):
+    assert host.service("accounts-daemon").is_enabled()
 
 def test_nix_daemon_exists(host: Fixture[Host]):
     assert host.service("nix-daemon").exists()
