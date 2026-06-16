@@ -46,7 +46,7 @@ just
 
 **3. Spec every issue.** By the time a PR is created, every issue in that PR MUST have a design spec. Specs can be written when the issue is picked up or ahead of time — but never skipped. Use the `superpowers:brainstorming` skill for spec design. Post spec content as a comment on the relevant issue.
 
-**4. Plan before implementing.** Use the `superpowers:writing-plans` skill. Multiple issues can be grouped into one plan if they are tightly coupled or logically sequential.
+**4. Plan before implementing.** Use the `superpowers:writing-plans` skill. Multiple issues can be grouped into one plan if they are tightly coupled or logically sequential. The plan MUST be posted as a comment on the PR before coding begins.
 
 **5. Implement via subagents or inline.** Use `superpowers:subagent-driven-development` or `superpowers:executing-plans`.
 
