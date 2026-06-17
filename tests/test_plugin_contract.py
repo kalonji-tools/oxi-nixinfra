@@ -38,12 +38,21 @@ def test_helper_extracts_fixture_provider_methods():
     methods = _protocol_methods(FixtureProvider)
     # FixtureProvider: name (prop), fixture_type (prop),
     # create(ctx), teardown(value)
-    assert "name" in methods, "FixtureProvider must have 'name'"
-    assert "fixture_type" in methods, "FixtureProvider must have 'fixture_type'"
-    assert "create" in methods, "FixtureProvider must have 'create'"
-    assert "teardown" in methods, "FixtureProvider must have 'teardown'"
+    assert "name" in methods, (
+        "_protocol_methods helper broke — update it to match FixtureProvider"
+    )
+    assert "fixture_type" in methods, (
+        "_protocol_methods helper broke — update it to match FixtureProvider"
+    )
+    assert "create" in methods, (
+        "_protocol_methods helper broke — update it to match FixtureProvider"
+    )
+    assert "teardown" in methods, (
+        "_protocol_methods helper broke — update it to match FixtureProvider"
+    )
     assert len(methods) == 4, (
-        f"FixtureProvider should have 4 methods, got {len(methods)}: {list(methods)}"
+        "FixtureProvider protocol changed — update _protocol_methods"
+        " and conformance tests to match"
     )
 
 
@@ -55,7 +64,8 @@ def test_host_provider_conforms_to_fixture_provider():
     for method_name, expected_arity in expected.items():
         attr = getattr(HostProvider, method_name, None)
         assert attr is not None, (
-            f"HostProvider is missing '{method_name}' required by FixtureProvider"
+            f"FixtureProvider protocol added '{method_name}'"
+            " — implement it on HostProvider or oxitest will TypeError at runtime"
         )
         if isinstance(
             inspect.getattr_static(HostProvider, method_name, None), property
@@ -64,8 +74,8 @@ def test_host_provider_conforms_to_fixture_provider():
         sig = inspect.signature(attr)
         params = [p for p in sig.parameters.values() if p.name != "self"]
         assert len(params) == expected_arity, (
-            f"HostProvider.{method_name} has {len(params)} params, "
-            f"FixtureProvider expects {expected_arity}"
+            f"FixtureProvider.{method_name} signature changed"
+            " — update HostProvider to match or oxitest will TypeError at runtime"
         )
 
 
@@ -77,7 +87,8 @@ def test_nixos_wrapper_conforms_to_execution_wrapper():
     for method_name, expected_arity in expected.items():
         attr = getattr(NixosWrapper, method_name, None)
         assert attr is not None, (
-            f"NixosWrapper is missing '{method_name}' required by ExecutionWrapper"
+            f"ExecutionWrapper protocol added '{method_name}'"
+            " — implement it on NixosWrapper or oxitest will TypeError at runtime"
         )
         if isinstance(
             inspect.getattr_static(NixosWrapper, method_name, None), property
@@ -86,8 +97,8 @@ def test_nixos_wrapper_conforms_to_execution_wrapper():
         sig = inspect.signature(attr)
         params = [p for p in sig.parameters.values() if p.name != "self"]
         assert len(params) == expected_arity, (
-            f"NixosWrapper.{method_name} has {len(params)} params, "
-            f"ExecutionWrapper expects {expected_arity}"
+            f"ExecutionWrapper.{method_name} signature changed"
+            " — update NixosWrapper to match or oxitest will TypeError at runtime"
         )
 
 
@@ -98,21 +109,23 @@ def test_oxitest_plugin_returns_valid_plugin():
     result = oxitest_plugin()
 
     assert isinstance(result, Plugin), (
-        f"oxitest_plugin() returned {type(result).__name__}, expected Plugin"
+        "oxitest_plugin() must return Plugin — oxitest's loader will reject it"
     )
     assert len(result.fixture_providers) > 0, (
-        "oxitest_plugin().fixture_providers is empty"
+        "no FixtureProvider registered — Host fixture won't be injectable"
     )
     assert len(result.execution_wrappers) > 0, (
-        "oxitest_plugin().execution_wrappers is empty"
+        "no ExecutionWrapper registered — @oxitest.mark.nixos won't skip on non-NixOS"
     )
 
     # Every provider must satisfy its protocol (structural check)
     for provider in result.fixture_providers:
         assert isinstance(provider, FixtureProvider), (
-            f"{type(provider).__name__} does not satisfy FixtureProvider protocol"
+            f"{type(provider).__name__} is missing FixtureProvider methods"
+            " — oxitest will fail to call it at runtime"
         )
     for wrapper in result.execution_wrappers:
         assert isinstance(wrapper, ExecutionWrapper), (
-            f"{type(wrapper).__name__} does not satisfy ExecutionWrapper protocol"
+            f"{type(wrapper).__name__} is missing ExecutionWrapper methods"
+            " — oxitest will fail to call it at runtime"
         )
