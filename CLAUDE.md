@@ -132,6 +132,7 @@ Config resolution: `OXITEST_HOST` env var > pyproject.toml > `"local://"` defaul
 - **Rust unit tests** (`just test-rust`): Mock `Backend` trait with `MockBackend`, test command output parsing.
 - **Python integration tests** (`just test`): Run real commands on local machine. Tests marked `@oxitest.mark.nixos` auto-skip on non-NixOS.
 - **CI**: GitHub Actions with path filtering (`dorny/paths-filter`). Two parallel jobs: `check` (static analysis via `just check`) and `test` (`just test-rust`, `just build`, `just test`). Docs-only PRs skip both. Uses `dtolnay/rust-toolchain`, `astral-sh/setup-uv`, `Swatinem/rust-cache` — no devenv in CI. NixOS-specific tests auto-skip on Ubuntu runners.
+- **Every `assert` MUST have a message.** oxitest runs with `strict = "abort"` — bare asserts are violations. The message explains *why* the assertion matters — oxitest already shows the where, when, and what (expected vs actual). The message gives the developer the *why* so they can debug the *how*. Bad: `"expected 4 methods, got 3"` (oxitest already shows that). Good: `"FixtureProvider protocol added a method — HostProvider needs to implement it to avoid runtime TypeError"`.
 
 ## graphify
 
