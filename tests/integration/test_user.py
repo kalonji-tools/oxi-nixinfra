@@ -11,12 +11,16 @@ def test_root_exists(host: Fixture[Host]):
 
 def test_root_uid(host: Fixture[Host]):
     uid = host.user("root").uid()
-    assert uid == 0, f"root uid is {uid}, expected 0"
+    assert uid == 0, (
+        "root is always uid 0 on Linux — check 'id -u' output parsing in user_impl"
+    )
 
 
 def test_root_home(host: Fixture[Host]):
     home = host.user("root").home()
-    assert home == "/root", f"root home is {home!r}, expected '/root'"
+    assert home == "/root", (
+        "root home is conventionally /root — check getent passwd field extraction"
+    )
 
 
 def test_nonexistent_user(host: Fixture[Host]):
@@ -27,7 +31,7 @@ def test_nonexistent_user(host: Fixture[Host]):
 
 def test_current_user(host: Fixture[Host]):
     name = host.user().name()
-    assert isinstance(name, str), f"name() returned {type(name).__name__}, expected str"
+    assert isinstance(name, str), "name() should return str from 'id -nu'"
     assert len(name) > 0, "'id -nu' returned an empty username"
 
 

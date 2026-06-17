@@ -9,16 +9,19 @@ from oxitest import Fixture
 def test_nixos_version(host: Fixture[Host]):
     version = host.system_info().nixos_version()
     assert isinstance(version, str), (
-        f"nixos_version() returned {type(version).__name__}, expected str"
+        "nixos_version() should return str from nixos-version command"
     )
-    assert len(version) > 0, "nixos_version() returned empty string"
+    assert len(version) > 0, (
+        "nixos-version command returned empty output — is nixos-version on PATH?"
+    )
 
 
 @oxitest.mark.nixos
 def test_system_profile(host: Fixture[Host]):
     profile = host.system_info().system_profile()
     assert profile.startswith("/nix/store/"), (
-        f"system_profile() should start with /nix/store/, got {profile!r}"
+        "system profile should be a /nix/store/ path"
+        " — check readlink /run/current-system parsing"
     )
 
 
@@ -26,41 +29,51 @@ def test_system_profile(host: Fixture[Host]):
 def test_generation_count(host: Fixture[Host]):
     count = host.system_info().generation_count()
     assert isinstance(count, int), (
-        f"generation_count() returned {type(count).__name__}, expected int"
+        "generation_count() should parse nix-env --list-generations as int"
     )
-    assert count >= 1, f"generation_count() is {count}, expected at least 1"
+    assert count >= 1, (
+        "a running NixOS system always has at least one generation"
+        " — check nix-env --list-generations output parsing"
+    )
 
 
 @oxitest.mark.nixos
 def test_kernel_version(host: Fixture[Host]):
     version = host.system_info().kernel_version()
     assert isinstance(version, str), (
-        f"kernel_version() returned {type(version).__name__}, expected str"
+        "kernel_version() should return str from 'uname -r'"
     )
     assert "." in version, (
-        f"kernel_version() is {version!r}, expected semver-like string"
+        "kernel version should be semver-like (e.g. 6.1.0)"
+        " — 'uname -r' output may not be parsed correctly"
     )
 
 
 @oxitest.mark.nixos
 def test_arch(host: Fixture[Host]):
     arch = host.system_info().arch()
-    assert isinstance(arch, str), f"arch() returned {type(arch).__name__}, expected str"
-    assert len(arch) > 0, "arch() returned empty string"
+    assert isinstance(arch, str), "arch() should return str from 'uname -m'"
+    assert len(arch) > 0, (
+        "'uname -m' returned empty output — check Backend.execute() stdout capture"
+    )
 
 
 @oxitest.mark.nixos
 def test_label(host: Fixture[Host]):
     label = host.system_info().label()
     assert isinstance(label, str), (
-        f"label() returned {type(label).__name__}, expected str"
+        "label() should return str from /etc/os-release parsing"
     )
-    assert "NixOS" in label, f"label() should contain 'NixOS', got {label!r}"
+    assert "NixOS" in label, (
+        "label() should contain 'NixOS' on a NixOS system"
+        " — check /etc/os-release PRETTY_NAME parsing"
+    )
 
 
 @oxitest.mark.nixos
 def test_specialisations(host: Fixture[Host]):
     specs = host.system_info().specialisations()
     assert isinstance(specs, list), (
-        f"specialisations() returned {type(specs).__name__}, expected list"
+        "specialisations() should return list from"
+        " /run/current-system/specialisation/ listing"
     )

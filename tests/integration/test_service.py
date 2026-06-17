@@ -24,15 +24,22 @@ def test_nix_daemon_is_managed(host: Fixture[Host]):
 @oxitest.mark.nixos
 def test_nix_daemon_enablement_status(host: Fixture[Host]):
     status = host.service("nix-daemon").enablement_status()
-    assert status == "linked", f"nix-daemon should be 'linked' on NixOS, got {status!r}"
+    assert status == "linked", (
+        "NixOS services are 'linked' not 'enabled'"
+        " — check systemctl is-enabled output parsing"
+    )
 
 
 @oxitest.mark.nixos
 def test_nix_daemon_store_path(host: Fixture[Host]):
     path = host.service("nix-daemon").store_path()
-    assert path is not None, "nix-daemon store_path should not be None"
+    assert path is not None, (
+        "NixOS-managed service should resolve to a /nix/store/ path"
+        " — check systemctl show FragmentPath parsing"
+    )
     assert path.startswith("/nix/store/"), (
-        f"nix-daemon store_path should start with /nix/store/, got {path!r}"
+        "store_path() returned a path outside /nix/store/"
+        " — FragmentPath resolved to an unexpected target"
     )
 
 
@@ -56,8 +63,9 @@ def test_nonexistent_service_not_managed(host: Fixture[Host]):
 def test_service_properties(host: Fixture[Host]):
     props = host.service("nix-daemon").properties()
     assert isinstance(props, dict), (
-        f"expected dict from systemctl show, got {type(props)}"
+        "properties() should parse 'systemctl show' key=value lines into a dict"
     )
     assert "Type" in props, (
-        f"'Type' missing from systemctl show, keys: {sorted(props)[:10]}"
+        "'Type' is a standard systemd property"
+        " — systemctl show output parsing may be broken"
     )
