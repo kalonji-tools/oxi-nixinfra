@@ -65,6 +65,7 @@ just
 - Only `--rebase` merge is allowed. Never squash merge, never merge commits.
 - Every commit message title MUST include its related issue number: `feat: add Foo (#42)`
 - Multiple issues per commit are fine: `feat: add Bar and Baz (#43, #44)`
+- **PR closing keywords**: GitHub requires the keyword before EACH issue number. Write `Closes #1, Closes #2, Closes #3` — NOT `Closes #1, #2, #3` (only the first gets closed).
 - Run `just preflight` before pushing.
 
 **9. Post-merge debrief.** After a PR is merged, if the implementation diverged from the plan, add a debrief comment to the closed PR explaining how, where, and why it diverged. Apply the `diverged-from-plan` label to the PR. This label is only applied to closed/merged PRs.
