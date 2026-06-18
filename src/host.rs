@@ -190,6 +190,11 @@ oxi_nixinfra_macros::register_modules! {
     system_info() -> system_info::SystemInfo,
     nix_package(name: &str) -> nix_package::NixPackage,
     nix_option(path: &str) -> nix_option::NixOption,
+    process() -> process::Process,
+    socket(spec: &str) -> socket::Socket,
+    mountpoint(path: &str) -> mountpoint::MountPoint,
+    sysctl(key: &str) -> sysctl::Sysctl,
+    environment() -> environment::Environment,
 }
 
 // ---------------------------------------------------------------------------

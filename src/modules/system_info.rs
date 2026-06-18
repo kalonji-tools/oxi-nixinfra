@@ -56,12 +56,14 @@ pub async fn boot_info_impl(inner: &HostInner) -> Result<BootInfo, BackendError>
         .await?;
     let json = String::from_utf8_lossy(&out.stdout);
     let extract = |key: &str| -> String {
-        let needle = format!("\"{key}\":\"");
+        let needle = format!("\"{key}\":");
         json.find(&needle)
-            .map(|pos| {
-                let start = pos + needle.len();
-                let end = json[start..].find('"').map_or(json.len(), |e| start + e);
-                json[start..end].to_owned()
+            .and_then(|pos| {
+                let after_colon = &json[pos + needle.len()..];
+                let quote_start = after_colon.find('"')?;
+                let value_start = quote_start + 1;
+                let value_end = after_colon[value_start..].find('"')?;
+                Some(after_colon[value_start..value_start + value_end].to_owned())
             })
             .unwrap_or_default()
     };
@@ -224,8 +226,22 @@ mod tests {
     }
 
     #[test]
-    fn test_boot_info_parsing() {
+    fn test_boot_info_parsing_compact() {
         let boot_json = br#"{"org.nixos.bootspec.v1":{"kernel":"/nix/store/abc123abc123abc123abc123abc123ab-linux-6.12.83/bzImage","system":"x86_64-linux","label":"NixOS Xantusia 25.11 (Linux 6.12.83)"},"org.nixos.specialisation.v1":{}}"#;
+        let inner = make_inner(vec![RawOutput {
+            rc: 0,
+            stdout: boot_json.to_vec(),
+            stderr: vec![],
+        }]);
+        let info = inner.runtime.block_on(boot_info_impl(&inner)).unwrap();
+        assert_eq!(info.kernel_version, "6.12.83");
+        assert_eq!(info.arch, "x86_64-linux");
+        assert_eq!(info.label, "NixOS Xantusia 25.11 (Linux 6.12.83)");
+    }
+
+    #[test]
+    fn test_boot_info_parsing_spaced() {
+        let boot_json = br#"{"org.nixos.bootspec.v1": {"kernel": "/nix/store/abc123abc123abc123abc123abc123ab-linux-6.12.83/bzImage", "system": "x86_64-linux", "label": "NixOS Xantusia 25.11 (Linux 6.12.83)"}}"#;
         let inner = make_inner(vec![RawOutput {
             rc: 0,
             stdout: boot_json.to_vec(),
