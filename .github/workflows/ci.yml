@@ -105,9 +105,26 @@ jobs:
       - name: Integration tests
         run: just test
 
+  test-nixos:
+    name: NixOS VM tests
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Run NixOS integration tests
+        run: nix build .#checks.x86_64-linux.integration --print-build-logs
+
   required:
     name: CI (required)
-    needs: [check, test]
+    needs: [check, test, test-nixos]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -115,7 +132,7 @@ jobs:
       - name: Check results
         shell: bash
         run: |
-          if [[ "${{ needs.check.result }}" =~ ^(failure|cancelled)$ || "${{ needs.test.result }}" =~ ^(failure|cancelled)$ ]]; then
+          if [[ "${{ needs.check.result }}" =~ ^(failure|cancelled)$ || "${{ needs.test.result }}" =~ ^(failure|cancelled)$ || "${{ needs.test-nixos.result }}" =~ ^(failure|cancelled)$ ]]; then
             echo "One or more jobs failed or were cancelled"
             exit 1
           fi
