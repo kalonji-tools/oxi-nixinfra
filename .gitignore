@@ -51,3 +51,6 @@ docs/site/
 
 # mdbook build output
 docs/internals/book/
+
+# Nix flake (CI-only, not tracked)
+flake.lock
