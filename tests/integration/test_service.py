@@ -1,7 +1,7 @@
 """Integration tests for Service module."""
 
 import oxitest
-from oxi_nixinfra import Host
+from oxi_nixinfra import Host, is_nixos
 from oxitest import Fixture
 
 
@@ -54,6 +54,10 @@ def test_nonexistent_service(host: Fixture[Host]):
     assert not svc.exists(), "fabricated service name should not match any unit file"
 
 
+@oxitest.mark.skip(
+    when=is_nixos(),
+    reason="NixOS symlinks system-units to /nix/store/",
+)
 def test_nonexistent_service_not_managed(host: Fixture[Host]):
     svc = host.service("nonexistent-service-12345")
     assert not svc.is_managed(), "fabricated service should not be NixOS-managed"
