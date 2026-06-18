@@ -23,5 +23,15 @@ fn _oxi_nixinfra(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<modules::nix_package::AsyncNixPackage>()?;
     m.add_class::<modules::nix_option::NixOption>()?;
     m.add_class::<modules::nix_option::AsyncNixOption>()?;
+    m.add_class::<modules::process::Process>()?;
+    m.add_class::<modules::process::AsyncProcess>()?;
+    m.add_class::<modules::socket::Socket>()?;
+    m.add_class::<modules::socket::AsyncSocket>()?;
+    m.add_class::<modules::mountpoint::MountPoint>()?;
+    m.add_class::<modules::mountpoint::AsyncMountPoint>()?;
+    m.add_class::<modules::sysctl::Sysctl>()?;
+    m.add_class::<modules::sysctl::AsyncSysctl>()?;
+    m.add_class::<modules::environment::Environment>()?;
+    m.add_class::<modules::environment::AsyncEnvironment>()?;
     Ok(())
 }
