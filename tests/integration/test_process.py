@@ -15,6 +15,10 @@ def test_process_list_entry_has_keys(host: Fixture[Host]):
     entry = procs[0]
     for key in ("pid", "user", "comm", "args"):
         assert key in entry, f"process entry missing '{key}' — ps output parsing broken"
+    assert entry["pid"].isdigit(), (
+        f"pid should be numeric but got '{entry['pid']}'"
+        " — check parse_ps_line field splitting"
+    )
 
 
 def test_process_exists_init(host: Fixture[Host]):
