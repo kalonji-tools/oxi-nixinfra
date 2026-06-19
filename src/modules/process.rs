@@ -146,16 +146,8 @@ impl AsyncProcess {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::backend::mock::MockBackend;
+    use crate::backend::mock::TestHarness;
     use crate::command::RawOutput;
-
-    fn make_inner(responses: Vec<RawOutput>) -> HostInner {
-        HostInner {
-            backend: Box::new(MockBackend::new(responses)),
-            runtime: tokio::runtime::Runtime::new().unwrap(),
-            connection_string: "mock://".to_owned(),
-        }
-    }
 
     const PS_OUTPUT: &[u8] = b"    1 root     systemd         /sbin/init\n  123 root     sshd            /usr/sbin/sshd -D\n  456 nobody   nginx           nginx: master process\n";
 
@@ -177,41 +169,65 @@ mod tests {
 
     #[test]
     fn test_list() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: PS_OUTPUT.to_vec(),
             stderr: vec![],
         }]);
-        let procs = inner.runtime.block_on(list_impl(&inner)).unwrap();
+        let procs = h.inner.runtime.block_on(list_impl(&h.inner)).unwrap();
         assert_eq!(procs.len(), 3);
         assert_eq!(procs[0].get("comm").unwrap(), "systemd");
         assert_eq!(procs[2].get("user").unwrap(), "nobody");
+        assert_eq!(
+            h.calls(),
+            [(
+                "ps".into(),
+                vec![
+                    "-eo".into(),
+                    "pid,user,comm,args".into(),
+                    "--no-headers".into()
+                ]
+            )]
+        );
     }
 
     #[test]
     fn test_filter_by_user() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: PS_OUTPUT.to_vec(),
             stderr: vec![],
         }]);
-        let procs = inner
+        let procs = h
+            .inner
             .runtime
-            .block_on(filter_impl(&inner, Some("root"), None))
+            .block_on(filter_impl(&h.inner, Some("root"), None))
             .unwrap();
         assert_eq!(procs.len(), 2);
+        assert_eq!(
+            h.calls(),
+            [(
+                "ps".into(),
+                vec![
+                    "-eo".into(),
+                    "pid,user,comm,args".into(),
+                    "--no-headers".into()
+                ]
+            )]
+        );
     }
 
     #[test]
     fn test_filter_by_comm() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: PS_OUTPUT.to_vec(),
             stderr: vec![],
         }]);
-        let procs = inner
+        let procs = h
+            .inner
             .runtime
-            .block_on(filter_impl(&inner, None, Some("nginx")))
+            .block_on(filter_impl(&h.inner, None, Some("nginx")))
             .unwrap();
         assert_eq!(procs.len(), 1);
         assert_eq!(procs[0].get("user").unwrap(), "nobody");
@@ -219,78 +235,113 @@ mod tests {
 
     #[test]
     fn test_filter_by_both() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: PS_OUTPUT.to_vec(),
             stderr: vec![],
         }]);
-        let procs = inner
+        let procs = h
+            .inner
             .runtime
-            .block_on(filter_impl(&inner, Some("root"), Some("sshd")))
+            .block_on(filter_impl(&h.inner, Some("root"), Some("sshd")))
             .unwrap();
         assert_eq!(procs.len(), 1);
     }
 
     #[test]
     fn test_filter_no_match() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: PS_OUTPUT.to_vec(),
             stderr: vec![],
         }]);
-        let procs = inner
+        let procs = h
+            .inner
             .runtime
-            .block_on(filter_impl(&inner, Some("nobody"), Some("sshd")))
+            .block_on(filter_impl(&h.inner, Some("nobody"), Some("sshd")))
             .unwrap();
         assert!(procs.is_empty());
     }
 
     #[test]
     fn test_exists_true() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: b"systemd\nsshd\nnginx\n".to_vec(),
             stderr: vec![],
         }]);
-        assert!(inner.runtime.block_on(exists_impl(&inner, "sshd")).unwrap());
+        assert!(
+            h.inner
+                .runtime
+                .block_on(exists_impl(&h.inner, "sshd"))
+                .unwrap()
+        );
+        assert_eq!(
+            h.calls(),
+            [(
+                "ps".into(),
+                vec!["-eo".into(), "comm".into(), "--no-headers".into()]
+            )]
+        );
     }
 
     #[test]
     fn test_exists_false() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: b"systemd\nsshd\n".to_vec(),
             stderr: vec![],
         }]);
         assert!(
-            !inner
+            !h.inner
                 .runtime
-                .block_on(exists_impl(&inner, "nginx"))
+                .block_on(exists_impl(&h.inner, "nginx"))
                 .unwrap()
         );
     }
 
     #[test]
     fn test_pids() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: b"    1 systemd\n  123 sshd\n  456 sshd\n  789 nginx\n".to_vec(),
             stderr: vec![],
         }]);
-        let pids = inner.runtime.block_on(pids_impl(&inner, "sshd")).unwrap();
+        let pids = h
+            .inner
+            .runtime
+            .block_on(pids_impl(&h.inner, "sshd"))
+            .unwrap();
         assert_eq!(pids, vec![123, 456]);
+        assert_eq!(
+            h.calls(),
+            [(
+                "ps".into(),
+                vec!["-eo".into(), "pid,comm".into(), "--no-headers".into()]
+            )]
+        );
     }
 
     #[test]
     fn test_count() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: b"systemd\nsshd\nsshd\nnginx\n".to_vec(),
             stderr: vec![],
         }]);
         assert_eq!(
-            inner.runtime.block_on(count_impl(&inner, "sshd")).unwrap(),
+            h.inner
+                .runtime
+                .block_on(count_impl(&h.inner, "sshd"))
+                .unwrap(),
             2
+        );
+        assert_eq!(
+            h.calls(),
+            [(
+                "ps".into(),
+                vec!["-eo".into(), "comm".into(), "--no-headers".into()]
+            )]
         );
     }
 }

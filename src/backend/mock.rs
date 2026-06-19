@@ -1,7 +1,7 @@
 #![cfg(test)]
 
 use std::collections::VecDeque;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use crate::command::RawOutput;
 
@@ -37,6 +37,42 @@ impl Backend for MockBackend {
             .unwrap()
             .pop_front()
             .ok_or_else(|| BackendError::Execution("no more mock responses".into()))
+    }
+}
+
+#[cfg(test)]
+struct ArcMockAdapter(Arc<MockBackend>);
+
+#[cfg(test)]
+#[async_trait::async_trait]
+impl Backend for ArcMockAdapter {
+    async fn execute(&self, program: &str, args: &[&str]) -> Result<RawOutput, BackendError> {
+        self.0.execute(program, args).await
+    }
+}
+
+#[cfg(test)]
+pub(crate) struct TestHarness {
+    pub inner: crate::host::HostInner,
+    mock: Arc<MockBackend>,
+}
+
+#[cfg(test)]
+impl TestHarness {
+    pub fn new(responses: Vec<RawOutput>) -> Self {
+        let mock = Arc::new(MockBackend::new(responses));
+        Self {
+            inner: crate::host::HostInner {
+                backend: Box::new(ArcMockAdapter(Arc::clone(&mock))),
+                runtime: tokio::runtime::Runtime::new().unwrap(),
+                connection_string: "mock://".to_owned(),
+            },
+            mock,
+        }
+    }
+
+    pub fn calls(&self) -> Vec<(String, Vec<String>)> {
+        self.mock.calls()
     }
 }
 

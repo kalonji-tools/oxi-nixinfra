@@ -96,122 +96,135 @@ oxi_nixinfra_macros::nix_module! {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::backend::mock::MockBackend;
+    use crate::backend::mock::TestHarness;
     use crate::command::RawOutput;
-
-    fn make_inner(responses: Vec<RawOutput>) -> HostInner {
-        HostInner {
-            backend: Box::new(MockBackend::new(responses)),
-            runtime: tokio::runtime::Runtime::new().unwrap(),
-            connection_string: "mock://".to_owned(),
-        }
-    }
 
     #[test]
     fn test_is_running_active() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: b"active\n".to_vec(),
             stderr: vec![],
         }]);
         assert!(
-            inner
+            h.inner
                 .runtime
-                .block_on(is_running_impl(&inner, "nix-daemon"))
+                .block_on(is_running_impl(&h.inner, "nix-daemon"))
                 .unwrap()
+        );
+        assert_eq!(
+            h.calls(),
+            [(
+                "systemctl".into(),
+                vec!["is-active".into(), "nix-daemon".into()]
+            )]
         );
     }
 
     #[test]
     fn test_is_running_inactive() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 3,
             stdout: b"inactive\n".to_vec(),
             stderr: vec![],
         }]);
         assert!(
-            !inner
+            !h.inner
                 .runtime
-                .block_on(is_running_impl(&inner, "nix-daemon"))
+                .block_on(is_running_impl(&h.inner, "nix-daemon"))
                 .unwrap()
         );
     }
 
     #[test]
     fn test_is_managed_nix_store_path() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: b"/nix/store/abc123-nix-2.31.4/lib/systemd/system/nix-daemon.service\n"
                 .to_vec(),
             stderr: vec![],
         }]);
         assert!(
-            inner
+            h.inner
                 .runtime
-                .block_on(is_managed_impl(&inner, "nix-daemon"))
+                .block_on(is_managed_impl(&h.inner, "nix-daemon"))
                 .unwrap()
+        );
+        assert_eq!(
+            h.calls(),
+            [(
+                "readlink".into(),
+                vec!["-f".into(), "/etc/systemd/system/nix-daemon.service".into()]
+            )]
         );
     }
 
     #[test]
     fn test_is_managed_dev_null() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: b"/dev/null\n".to_vec(),
             stderr: vec![],
         }]);
         assert!(
-            !inner
+            !h.inner
                 .runtime
-                .block_on(is_managed_impl(&inner, "console-getty"))
+                .block_on(is_managed_impl(&h.inner, "console-getty"))
                 .unwrap()
         );
     }
 
     #[test]
     fn test_is_managed_not_found() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 1,
             stdout: b"".to_vec(),
             stderr: b"readlink: /etc/systemd/system/sshd.service: No such file or directory\n"
                 .to_vec(),
         }]);
         assert!(
-            !inner
+            !h.inner
                 .runtime
-                .block_on(is_managed_impl(&inner, "sshd"))
+                .block_on(is_managed_impl(&h.inner, "sshd"))
                 .unwrap()
         );
     }
 
     #[test]
     fn test_store_path_returns_path() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: b"/nix/store/abc123-nix-2.31.4/lib/systemd/system/nix-daemon.service\n"
                 .to_vec(),
             stderr: vec![],
         }]);
         assert_eq!(
-            inner
+            h.inner
                 .runtime
-                .block_on(store_path_impl(&inner, "nix-daemon"))
+                .block_on(store_path_impl(&h.inner, "nix-daemon"))
                 .unwrap(),
             Some("/nix/store/abc123-nix-2.31.4/lib/systemd/system/nix-daemon.service".to_owned())
+        );
+        assert_eq!(
+            h.calls(),
+            [(
+                "readlink".into(),
+                vec!["-f".into(), "/etc/systemd/system/nix-daemon.service".into()]
+            )]
         );
     }
 
     #[test]
     fn test_store_path_returns_none_for_masked() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: b"/dev/null\n".to_vec(),
             stderr: vec![],
         }]);
         assert_eq!(
-            inner
+            h.inner
                 .runtime
-                .block_on(store_path_impl(&inner, "console-getty"))
+                .block_on(store_path_impl(&h.inner, "console-getty"))
                 .unwrap(),
             None
         );
@@ -219,15 +232,15 @@ mod tests {
 
     #[test]
     fn test_store_path_returns_none_for_not_found() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 1,
             stdout: b"".to_vec(),
             stderr: b"readlink: No such file or directory\n".to_vec(),
         }]);
         assert_eq!(
-            inner
+            h.inner
                 .runtime
-                .block_on(store_path_impl(&inner, "sshd"))
+                .block_on(store_path_impl(&h.inner, "sshd"))
                 .unwrap(),
             None
         );
@@ -235,31 +248,44 @@ mod tests {
 
     #[test]
     fn test_enablement_status_linked() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: b"linked\n".to_vec(),
             stderr: vec![],
         }]);
         assert_eq!(
-            inner
+            h.inner
                 .runtime
-                .block_on(enablement_status_impl(&inner, "nix-daemon"))
+                .block_on(enablement_status_impl(&h.inner, "nix-daemon"))
                 .unwrap(),
             "linked"
+        );
+        assert_eq!(
+            h.calls(),
+            [(
+                "systemctl".into(),
+                vec![
+                    "show".into(),
+                    "nix-daemon".into(),
+                    "-p".into(),
+                    "UnitFileState".into(),
+                    "--value".into()
+                ]
+            )]
         );
     }
 
     #[test]
     fn test_enablement_status_enabled() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: b"enabled\n".to_vec(),
             stderr: vec![],
         }]);
         assert_eq!(
-            inner
+            h.inner
                 .runtime
-                .block_on(enablement_status_impl(&inner, "avahi-daemon"))
+                .block_on(enablement_status_impl(&h.inner, "avahi-daemon"))
                 .unwrap(),
             "enabled"
         );
@@ -267,15 +293,15 @@ mod tests {
 
     #[test]
     fn test_enablement_status_masked() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: b"masked\n".to_vec(),
             stderr: vec![],
         }]);
         assert_eq!(
-            inner
+            h.inner
                 .runtime
-                .block_on(enablement_status_impl(&inner, "console-getty"))
+                .block_on(enablement_status_impl(&h.inner, "console-getty"))
                 .unwrap(),
             "masked"
         );
@@ -283,49 +309,61 @@ mod tests {
 
     #[test]
     fn test_exists_found() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: b"nix-daemon.service  enabled  enabled\nsshd.service  enabled  enabled\n"
                 .to_vec(),
             stderr: vec![],
         }]);
         assert!(
-            inner
+            h.inner
                 .runtime
-                .block_on(exists_impl(&inner, "nix-daemon"))
+                .block_on(exists_impl(&h.inner, "nix-daemon"))
                 .unwrap()
+        );
+        assert_eq!(
+            h.calls(),
+            [(
+                "systemctl".into(),
+                vec!["list-unit-files".into(), "--no-pager".into()]
+            )]
         );
     }
 
     #[test]
     fn test_exists_not_found() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: b"sshd.service  enabled  enabled\n".to_vec(),
             stderr: vec![],
         }]);
         assert!(
-            !inner
+            !h.inner
                 .runtime
-                .block_on(exists_impl(&inner, "nix-daemon"))
+                .block_on(exists_impl(&h.inner, "nix-daemon"))
                 .unwrap()
         );
     }
 
     #[test]
     fn test_properties_parse() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: b"Type=simple\nExecStart=/bin/foo\nDescription=\nActiveState=active\n".to_vec(),
             stderr: vec![],
         }]);
-        let props = inner
+        let props = h
+            .inner
             .runtime
-            .block_on(properties_impl(&inner, "test"))
+            .block_on(properties_impl(&h.inner, "test"))
             .unwrap();
         assert_eq!(props.get("Type").unwrap(), "simple");
         assert_eq!(props.get("ExecStart").unwrap(), "/bin/foo");
         assert_eq!(props.get("ActiveState").unwrap(), "active");
         assert!(!props.contains_key("Description"));
+        assert_eq!(
+            h.calls(),
+            [("systemctl".into(), vec!["show".into(), "test".into()])]
+        );
     }
 }

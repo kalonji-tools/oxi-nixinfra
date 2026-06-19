@@ -152,16 +152,8 @@ impl AsyncSocket {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::backend::mock::MockBackend;
+    use crate::backend::mock::TestHarness;
     use crate::command::RawOutput;
-
-    fn make_inner(responses: Vec<RawOutput>) -> HostInner {
-        HostInner {
-            backend: Box::new(MockBackend::new(responses)),
-            runtime: tokio::runtime::Runtime::new().unwrap(),
-            connection_string: "mock://".to_owned(),
-        }
-    }
 
     #[test]
     fn test_parse_tcp() {
@@ -205,7 +197,7 @@ mod tests {
 
     #[test]
     fn test_is_listening_tcp_found() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout:
                 b"LISTEN  0  128  0.0.0.0:22  0.0.0.0:*\nLISTEN  0  128  0.0.0.0:80  0.0.0.0:*\n"
@@ -213,54 +205,56 @@ mod tests {
             stderr: vec![],
         }]);
         assert!(
-            inner
+            h.inner
                 .runtime
-                .block_on(is_listening_impl(&inner, "tcp://0.0.0.0:22"))
+                .block_on(is_listening_impl(&h.inner, "tcp://0.0.0.0:22"))
                 .unwrap()
         );
+        assert_eq!(h.calls(), [("ss".into(), vec!["-lnH".into(), "-t".into()])]);
     }
 
     #[test]
     fn test_is_listening_tcp_not_found() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: b"LISTEN  0  128  0.0.0.0:80  0.0.0.0:*\n".to_vec(),
             stderr: vec![],
         }]);
         assert!(
-            !inner
+            !h.inner
                 .runtime
-                .block_on(is_listening_impl(&inner, "tcp://0.0.0.0:22"))
+                .block_on(is_listening_impl(&h.inner, "tcp://0.0.0.0:22"))
                 .unwrap()
         );
     }
 
     #[test]
     fn test_is_listening_unix_found() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: b"u_str  LISTEN  0  128  /var/run/docker.sock  12345  * 0\n".to_vec(),
             stderr: vec![],
         }]);
         assert!(
-            inner
+            h.inner
                 .runtime
-                .block_on(is_listening_impl(&inner, "unix:///var/run/docker.sock"))
+                .block_on(is_listening_impl(&h.inner, "unix:///var/run/docker.sock"))
                 .unwrap()
         );
+        assert_eq!(h.calls(), [("ss".into(), vec!["-lnH".into(), "-x".into()])]);
     }
 
     #[test]
     fn test_is_listening_unix_not_found() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: b"u_str  LISTEN  0  128  /var/run/other.sock  12345  * 0\n".to_vec(),
             stderr: vec![],
         }]);
         assert!(
-            !inner
+            !h.inner
                 .runtime
-                .block_on(is_listening_impl(&inner, "unix:///var/run/docker.sock"))
+                .block_on(is_listening_impl(&h.inner, "unix:///var/run/docker.sock"))
                 .unwrap()
         );
     }

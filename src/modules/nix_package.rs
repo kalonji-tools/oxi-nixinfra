@@ -69,6 +69,8 @@ oxi_nixinfra_macros::nix_module! {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::backend::mock::TestHarness;
+    use crate::command::RawOutput;
 
     #[test]
     fn test_parse_version_simple() {
@@ -105,46 +107,43 @@ mod tests {
 
     #[test]
     fn test_is_installed_found() {
-        use crate::backend::mock::MockBackend;
-        use crate::command::RawOutput;
-
-        let inner = HostInner {
-            backend: Box::new(MockBackend::new(vec![RawOutput {
-                rc: 0,
-                stdout: b"/nix/store/abc123abc123abc123abc123abc123ab-git-2.44.0\n\
-                          /nix/store/def456def456def456def456def456de-vim-9.1\n"
-                    .to_vec(),
-                stderr: vec![],
-            }])),
-            runtime: tokio::runtime::Runtime::new().unwrap(),
-            connection_string: "mock://".to_owned(),
-        };
+        let h = TestHarness::new(vec![RawOutput {
+            rc: 0,
+            stdout: b"/nix/store/abc123abc123abc123abc123abc123ab-git-2.44.0\n\
+                      /nix/store/def456def456def456def456def456de-vim-9.1\n"
+                .to_vec(),
+            stderr: vec![],
+        }]);
         assert!(
-            inner
+            h.inner
                 .runtime
-                .block_on(is_installed_impl(&inner, "git"))
+                .block_on(is_installed_impl(&h.inner, "git"))
                 .unwrap()
+        );
+        assert_eq!(
+            h.calls(),
+            [(
+                "nix-store".into(),
+                vec![
+                    "-q".into(),
+                    "--references".into(),
+                    "/run/current-system/sw".into()
+                ]
+            )]
         );
     }
 
     #[test]
     fn test_is_installed_not_found() {
-        use crate::backend::mock::MockBackend;
-        use crate::command::RawOutput;
-
-        let inner = HostInner {
-            backend: Box::new(MockBackend::new(vec![RawOutput {
-                rc: 0,
-                stdout: b"/nix/store/abc123abc123abc123abc123abc123ab-git-2.44.0\n".to_vec(),
-                stderr: vec![],
-            }])),
-            runtime: tokio::runtime::Runtime::new().unwrap(),
-            connection_string: "mock://".to_owned(),
-        };
+        let h = TestHarness::new(vec![RawOutput {
+            rc: 0,
+            stdout: b"/nix/store/abc123abc123abc123abc123abc123ab-git-2.44.0\n".to_vec(),
+            stderr: vec![],
+        }]);
         assert!(
-            !inner
+            !h.inner
                 .runtime
-                .block_on(is_installed_impl(&inner, "emacs"))
+                .block_on(is_installed_impl(&h.inner, "emacs"))
                 .unwrap()
         );
     }

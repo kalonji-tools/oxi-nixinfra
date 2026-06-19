@@ -177,82 +177,102 @@ impl AsyncSystemInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::backend::mock::MockBackend;
+    use crate::backend::mock::TestHarness;
     use crate::command::RawOutput;
-
-    fn make_inner(responses: Vec<RawOutput>) -> HostInner {
-        HostInner {
-            backend: Box::new(MockBackend::new(responses)),
-            runtime: tokio::runtime::Runtime::new().unwrap(),
-            connection_string: "mock://".to_owned(),
-        }
-    }
 
     #[test]
     fn test_nixos_version() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: b"25.11.9840.a4bf06618f0b".to_vec(),
             stderr: vec![],
         }]);
         assert_eq!(
-            inner.runtime.block_on(nixos_version_impl(&inner)).unwrap(),
+            h.inner
+                .runtime
+                .block_on(nixos_version_impl(&h.inner))
+                .unwrap(),
             "25.11.9840.a4bf06618f0b"
+        );
+        assert_eq!(
+            h.calls(),
+            [(
+                "cat".into(),
+                vec!["/run/current-system/nixos-version".into()]
+            )]
         );
     }
 
     #[test]
     fn test_system_profile() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: b"/nix/store/abc123-nixos-system-nixos-25.11\n".to_vec(),
             stderr: vec![],
         }]);
         assert_eq!(
-            inner.runtime.block_on(system_profile_impl(&inner)).unwrap(),
+            h.inner
+                .runtime
+                .block_on(system_profile_impl(&h.inner))
+                .unwrap(),
             "/nix/store/abc123-nixos-system-nixos-25.11"
+        );
+        assert_eq!(
+            h.calls(),
+            [("readlink".into(), vec!["/run/current-system".into()])]
         );
     }
 
     #[test]
     fn test_generation_count() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: b"system-1-link\nsystem-2-link\nsystem-3-link\n".to_vec(),
             stderr: vec![],
         }]);
         assert_eq!(
-            inner
+            h.inner
                 .runtime
-                .block_on(generation_count_impl(&inner))
+                .block_on(generation_count_impl(&h.inner))
                 .unwrap(),
             3
+        );
+        assert_eq!(
+            h.calls(),
+            [(
+                "ls".into(),
+                vec!["-1".into(), "/nix/var/nix/profiles/".into()]
+            )]
         );
     }
 
     #[test]
     fn test_boot_info_parsing_compact() {
         let boot_json = br#"{"org.nixos.bootspec.v1":{"kernel":"/nix/store/abc123abc123abc123abc123abc123ab-linux-6.12.83/bzImage","system":"x86_64-linux","label":"NixOS Xantusia 25.11 (Linux 6.12.83)"},"org.nixos.specialisation.v1":{}}"#;
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: boot_json.to_vec(),
             stderr: vec![],
         }]);
-        let info = inner.runtime.block_on(boot_info_impl(&inner)).unwrap();
+        let info = h.inner.runtime.block_on(boot_info_impl(&h.inner)).unwrap();
         assert_eq!(info.kernel_version, "6.12.83");
         assert_eq!(info.arch, "x86_64-linux");
         assert_eq!(info.label, "NixOS Xantusia 25.11 (Linux 6.12.83)");
+        assert_eq!(
+            h.calls(),
+            [("cat".into(), vec!["/run/current-system/boot.json".into()])]
+        );
     }
 
     #[test]
     fn test_boot_info_parsing_spaced() {
         let boot_json = br#"{"org.nixos.bootspec.v1": {"kernel": "/nix/store/abc123abc123abc123abc123abc123ab-linux-6.12.83/bzImage", "system": "x86_64-linux", "label": "NixOS Xantusia 25.11 (Linux 6.12.83)"}}"#;
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: boot_json.to_vec(),
             stderr: vec![],
         }]);
-        let info = inner.runtime.block_on(boot_info_impl(&inner)).unwrap();
+        let info = h.inner.runtime.block_on(boot_info_impl(&h.inner)).unwrap();
         assert_eq!(info.kernel_version, "6.12.83");
         assert_eq!(info.arch, "x86_64-linux");
         assert_eq!(info.label, "NixOS Xantusia 25.11 (Linux 6.12.83)");
@@ -260,28 +280,37 @@ mod tests {
 
     #[test]
     fn test_specialisations_empty() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: b"".to_vec(),
             stderr: vec![],
         }]);
-        let specs = inner
+        let specs = h
+            .inner
             .runtime
-            .block_on(specialisations_impl(&inner))
+            .block_on(specialisations_impl(&h.inner))
             .unwrap();
         assert!(specs.is_empty());
+        assert_eq!(
+            h.calls(),
+            [(
+                "ls".into(),
+                vec!["-1".into(), "/run/current-system/specialisation/".into()]
+            )]
+        );
     }
 
     #[test]
     fn test_specialisations_some() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: b"gaming\nwork\n".to_vec(),
             stderr: vec![],
         }]);
-        let specs = inner
+        let specs = h
+            .inner
             .runtime
-            .block_on(specialisations_impl(&inner))
+            .block_on(specialisations_impl(&h.inner))
             .unwrap();
         assert_eq!(specs, vec!["gaming", "work"]);
     }
@@ -304,12 +333,12 @@ mod tests {
     #[test]
     fn test_boot_info_cached_across_calls() {
         let boot_json = br#"{"org.nixos.bootspec.v1":{"kernel":"/nix/store/abc123abc123abc123abc123abc123ab-linux-6.12.83/bzImage","system":"x86_64-linux","label":"NixOS Xantusia 25.11 (Linux 6.12.83)"}}"#;
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: boot_json.to_vec(),
             stderr: vec![],
         }]);
-        let inner = std::sync::Arc::new(inner);
+        let inner = std::sync::Arc::new(h.inner);
         let sys = SystemInfo {
             inner: std::sync::Arc::clone(&inner),
             boot_info_cache: std::sync::OnceLock::new(),
