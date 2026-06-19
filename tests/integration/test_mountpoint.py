@@ -10,14 +10,22 @@ def test_root_mount_exists(host: Fixture[Host]):
 
 def test_root_filesystem_type(host: Fixture[Host]):
     fs = host.mountpoint("/").filesystem()
-    assert isinstance(fs, str), "filesystem() should return a string"
-    assert len(fs) > 0, "filesystem type should not be empty"
+    expected = host.run("findmnt", "-n", "-o", "FSTYPE", "/").stdout.strip()
+    assert fs == expected, (
+        f"mountpoint('/').filesystem() returned '{fs}'"
+        f" but 'findmnt -n -o FSTYPE /' returned '{expected}'"
+        " — check json_field('fstype') parsing"
+    )
 
 
 def test_root_device(host: Fixture[Host]):
     dev = host.mountpoint("/").device()
-    assert isinstance(dev, str), "device() should return a string"
-    assert len(dev) > 0, "device should not be empty"
+    expected = host.run("findmnt", "-n", "-o", "SOURCE", "/").stdout.strip()
+    assert dev == expected, (
+        f"mountpoint('/').device() returned '{dev}'"
+        f" but 'findmnt -n -o SOURCE /' returned '{expected}'"
+        " — check json_field('source') parsing"
+    )
 
 
 def test_root_options(host: Fixture[Host]):

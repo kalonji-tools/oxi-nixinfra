@@ -6,8 +6,12 @@ from oxitest import Fixture
 
 def test_sysctl_kernel_hostname(host: Fixture[Host]):
     val = host.sysctl("kernel.hostname").value()
-    assert isinstance(val, str), "sysctl value should be a string"
-    assert len(val) > 0, "kernel.hostname should not be empty"
+    expected = host.run("hostname").stdout.strip()
+    assert val == expected, (
+        f"sysctl('kernel.hostname').value() returned '{val}'"
+        f" but 'hostname' command returned '{expected}'"
+        " — check sysctl -n output parsing"
+    )
 
 
 def test_sysctl_exists_true(host: Fixture[Host]):

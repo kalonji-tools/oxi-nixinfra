@@ -6,8 +6,12 @@ from oxitest import Fixture
 
 def test_env_get_path(host: Fixture[Host]):
     val = host.environment().get("PATH")
-    assert val is not None, "PATH should be set in any Unix environment"
-    assert "/" in val, "PATH should contain at least one directory separator"
+    expected = host.run("printenv", "PATH").stdout.strip()
+    assert val == expected, (
+        f"environment().get('PATH') returned '{val}'"
+        f" but 'printenv PATH' returned '{expected}'"
+        " — check printenv output parsing or newline trimming"
+    )
 
 
 def test_env_get_nonexistent(host: Fixture[Host]):
