@@ -7,6 +7,10 @@ on:
 
 permissions: {}
 
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   linux:
     runs-on: ubuntu-latest
@@ -80,6 +84,16 @@ jobs:
           pattern: wheels-*
           merge-multiple: true
           path: dist
+
+      - name: Verify wheels exist
+        run: |
+          count=$(find dist -name '*.whl' -o -name '*.tar.gz' | wc -l)
+          echo "Found $count distribution files in dist/"
+          ls -la dist/
+          if [ "$count" -eq 0 ]; then
+            echo "::error::No wheels or sdist found in dist/ — all build jobs may have failed"
+            exit 1
+          fi
 
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
