@@ -8,8 +8,9 @@ use pyo3::types::PyTuple;
 use crate::backend::local::LocalBackend;
 use crate::backend::ssh::SshBackend;
 use crate::backend::{Backend, BackendError};
-use crate::command::{CommandResult, RawOutput};
+use crate::command::CommandResult;
 use crate::helpers::{backend_err_to_py, extract_args, wrap_sync};
+use crate::parse::CommandOutput;
 
 // ---------------------------------------------------------------------------
 // Connection string parsing
@@ -64,8 +65,13 @@ pub struct HostInner {
 }
 
 impl HostInner {
-    pub async fn execute(&self, program: &str, args: &[&str]) -> Result<RawOutput, BackendError> {
-        self.backend.execute(program, args).await
+    pub async fn execute(
+        &self,
+        program: &str,
+        args: &[&str],
+    ) -> Result<CommandOutput, BackendError> {
+        let raw = self.backend.execute(program, args).await?;
+        Ok(CommandOutput::from_raw(raw))
     }
 }
 
@@ -134,8 +140,8 @@ impl Host {
         let program = &parts[0];
         let str_args: Vec<&str> = parts[1..].iter().map(std::string::String::as_str).collect();
         let command_display = parts.join(" ");
-        let raw = wrap_sync(&self.inner, self.inner.execute(program, &str_args))?;
-        Ok(CommandResult::from_raw(raw, command_display))
+        let out = wrap_sync(&self.inner, self.inner.execute(program, &str_args))?;
+        Ok(CommandResult::from_output(out, command_display))
     }
 
     #[getter]
@@ -169,11 +175,11 @@ impl AsyncHost {
             let program = &parts[0];
             let str_args: Vec<&str> = parts[1..].iter().map(std::string::String::as_str).collect();
             let command_display = parts.join(" ");
-            let raw = inner
+            let out = inner
                 .execute(program, &str_args)
                 .await
                 .map_err(backend_err_to_py)?;
-            Ok(CommandResult::from_raw(raw, command_display))
+            Ok(CommandResult::from_output(out, command_display))
         })
     }
 

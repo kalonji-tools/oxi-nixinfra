@@ -9,33 +9,21 @@ pub async fn exists_impl(inner: &HostInner, path: &str) -> Result<bool, BackendE
     let out = inner
         .execute("findmnt", &["--json", "--target", path])
         .await?;
-    Ok(out.rc == 0)
-}
-
-fn extract_json_field(json: &str, key: &str) -> Option<String> {
-    let needle = format!("\"{key}\":");
-    let pos = json.find(&needle)?;
-    let after_colon = &json[pos + needle.len()..];
-    let quote_start = after_colon.find('"')?;
-    let value_start = quote_start + 1;
-    let value_end = after_colon[value_start..].find('"')?;
-    Some(after_colon[value_start..value_start + value_end].to_owned())
+    Ok(out.rc() == 0)
 }
 
 async fn findmnt_field(inner: &HostInner, path: &str, field: &str) -> Result<String, BackendError> {
     let out = inner
         .execute("findmnt", &["--json", "--target", path])
         .await?;
-    if out.rc != 0 {
+    if out.rc() != 0 {
         return Err(BackendError::Execution(format!(
             "findmnt failed for '{path}': {}",
-            String::from_utf8_lossy(&out.stderr)
+            out.stderr_lossy()
         )));
     }
-    let json = String::from_utf8_lossy(&out.stdout);
-    extract_json_field(&json, field).ok_or_else(|| {
-        BackendError::Execution(format!("could not parse {field} for mount: {path}"))
-    })
+    out.json_field(field)
+        .map_err(|_| BackendError::Execution(format!("could not parse {field} for mount: {path}")))
 }
 
 pub async fn filesystem_impl(inner: &HostInner, path: &str) -> Result<String, BackendError> {
@@ -172,28 +160,5 @@ mod tests {
             .block_on(filesystem_impl(&inner, "/nonexistent"))
             .unwrap_err();
         assert!(err.to_string().contains("findmnt failed"));
-    }
-
-    #[test]
-    fn test_extract_json_field() {
-        // Compact format (no spaces)
-        let json = r#"{"target":"/","source":"/dev/sda1","fstype":"ext4"}"#;
-        assert_eq!(extract_json_field(json, "fstype"), Some("ext4".to_owned()));
-        assert_eq!(
-            extract_json_field(json, "source"),
-            Some("/dev/sda1".to_owned())
-        );
-
-        // Spaced format (real findmnt output)
-        let spaced = r#"{"target": "/", "source": "/dev/sda1", "fstype": "ext4"}"#;
-        assert_eq!(
-            extract_json_field(spaced, "fstype"),
-            Some("ext4".to_owned())
-        );
-        assert_eq!(
-            extract_json_field(spaced, "source"),
-            Some("/dev/sda1".to_owned())
-        );
-        assert_eq!(extract_json_field(json, "missing"), None);
     }
 }

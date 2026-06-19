@@ -38,8 +38,7 @@ pub async fn list_impl(inner: &HostInner) -> Result<Vec<HashMap<String, String>>
     let out = inner
         .execute("ps", &["-eo", "pid,user,comm,args", "--no-headers"])
         .await?;
-    let stdout = String::from_utf8_lossy(&out.stdout);
-    Ok(stdout.lines().filter_map(parse_ps_line).collect())
+    Ok(out.lines().filter_map(parse_ps_line).collect())
 }
 
 pub async fn filter_impl(
@@ -61,16 +60,14 @@ pub async fn exists_impl(inner: &HostInner, comm: &str) -> Result<bool, BackendE
     let out = inner
         .execute("ps", &["-eo", "comm", "--no-headers"])
         .await?;
-    let stdout = String::from_utf8_lossy(&out.stdout);
-    Ok(stdout.lines().any(|line| line.trim() == comm))
+    Ok(out.lines().any(|line| line.trim() == comm))
 }
 
 pub async fn pids_impl(inner: &HostInner, comm: &str) -> Result<Vec<i32>, BackendError> {
     let out = inner
         .execute("ps", &["-eo", "pid,comm", "--no-headers"])
         .await?;
-    let stdout = String::from_utf8_lossy(&out.stdout);
-    Ok(stdout
+    Ok(out
         .lines()
         .filter_map(|line| {
             let mut parts = line.trim().splitn(2, char::is_whitespace);
@@ -89,9 +86,8 @@ pub async fn count_impl(inner: &HostInner, comm: &str) -> Result<i32, BackendErr
     let out = inner
         .execute("ps", &["-eo", "comm", "--no-headers"])
         .await?;
-    let stdout = String::from_utf8_lossy(&out.stdout);
     #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
-    let count = stdout.lines().filter(|line| line.trim() == comm).count() as i32;
+    let count = out.lines().filter(|line| line.trim() == comm).count() as i32;
     Ok(count)
 }
 

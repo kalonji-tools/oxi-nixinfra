@@ -34,6 +34,15 @@ impl CommandResult {
 }
 
 impl CommandResult {
+    pub fn from_output(out: crate::parse::CommandOutput, command: String) -> Self {
+        Self {
+            rc: out.rc(),
+            stdout: out.stdout_raw(),
+            stderr: out.stderr_lossy(),
+            command,
+        }
+    }
+
     pub fn from_raw(raw: RawOutput, command: String) -> Self {
         Self {
             rc: raw.rc,

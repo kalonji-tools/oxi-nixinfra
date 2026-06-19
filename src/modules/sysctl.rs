@@ -7,21 +7,20 @@ use crate::host::HostInner;
 
 pub async fn value_impl(inner: &HostInner, key: &str) -> Result<String, BackendError> {
     let out = inner.execute("sysctl", &["-n", key]).await?;
-    if out.rc == 0 {
-        let stdout = String::from_utf8_lossy(&out.stdout);
-        Ok(stdout.trim().to_owned())
+    if out.rc() == 0 {
+        Ok(out.stdout().to_owned())
     } else {
         Err(BackendError::Execution(format!(
             "sysctl failed for '{}': {}",
             key,
-            String::from_utf8_lossy(&out.stderr)
+            out.stderr_lossy()
         )))
     }
 }
 
 pub async fn exists_impl(inner: &HostInner, key: &str) -> Result<bool, BackendError> {
     let out = inner.execute("sysctl", &["-n", key]).await?;
-    Ok(out.rc == 0)
+    Ok(out.rc() == 0)
 }
 
 // ---------------------------------------------------------------------------

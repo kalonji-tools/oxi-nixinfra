@@ -6,13 +6,11 @@ use crate::backend::BackendError;
 use crate::command::RawOutput;
 
 /// Parsed command output with lazy UTF-8 conversion and typed parse helpers.
-#[allow(dead_code)] // Used in Task B when modules are migrated
 pub struct CommandOutput {
     raw: RawOutput,
     stdout_cache: OnceLock<String>,
 }
 
-#[allow(dead_code)] // Methods wired in Task B when modules are migrated
 impl CommandOutput {
     pub fn from_raw(raw: RawOutput) -> Self {
         Self {
