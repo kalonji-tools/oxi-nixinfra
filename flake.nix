@@ -22,7 +22,7 @@
       # Build just the maturin wheel (no network needed)
       oxi-nixinfra-wheel = pkgs.rustPlatform.buildRustPackage {
         pname = "oxi-nixinfra";
-        version = "0.2.0";
+        version = "0.3.0";
         src = self;
         cargoLock.lockFile = ./Cargo.lock;
         nativeBuildInputs = [ pkgs.maturin python ];
