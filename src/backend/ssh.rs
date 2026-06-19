@@ -53,3 +53,76 @@ impl Backend for SshBackend {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn connection_error_display() {
+        let err = BackendError::Connection("SSH connect to example.com failed: timeout".into());
+        let msg = err.to_string();
+        assert!(
+            msg.contains("connection error"),
+            "Connection variant should display as 'connection error: ...', got: {msg}"
+        );
+        assert!(
+            msg.contains("example.com"),
+            "error message should preserve the host, got: {msg}"
+        );
+    }
+
+    #[test]
+    fn execution_error_display() {
+        let err = BackendError::Execution("SSH command failed: permission denied".into());
+        let msg = err.to_string();
+        assert!(
+            msg.contains("execution error"),
+            "Execution variant should display as 'execution error: ...', got: {msg}"
+        );
+        assert!(
+            msg.contains("permission denied"),
+            "error message should preserve the cause, got: {msg}"
+        );
+    }
+
+    #[test]
+    fn backend_error_is_std_error() {
+        let err: Box<dyn std::error::Error> = Box::new(BackendError::Connection("test".into()));
+        assert!(
+            err.to_string().contains("test"),
+            "BackendError should implement std::error::Error Display"
+        );
+    }
+
+    #[test]
+    fn backend_error_debug_format() {
+        let err = BackendError::Connection("debug test".into());
+        let debug = format!("{err:?}");
+        assert!(
+            debug.contains("Connection"),
+            "Debug format should include variant name, got: {debug}"
+        );
+    }
+
+    #[test]
+    fn ssh_backend_connect_string_format() {
+        let host = "192.168.1.1";
+        let err_msg = format!("SSH connect to {host} failed: connection refused");
+        let err = BackendError::Connection(err_msg);
+        assert!(
+            err.to_string().contains(host),
+            "connect error should include the target host"
+        );
+    }
+
+    #[test]
+    fn disconnected_error_message() {
+        let err = BackendError::Connection("SSH session disconnected".into());
+        assert_eq!(
+            err.to_string(),
+            "connection error: SSH session disconnected",
+            "disconnection should produce a specific, recognizable message"
+        );
+    }
+}
