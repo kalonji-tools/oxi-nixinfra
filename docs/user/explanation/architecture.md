@@ -20,7 +20,7 @@ extension via PyO3, and a thin Python shim for oxitest plugin integration.
 │    SshBackend            openssh + tokio              │
 │  modules/               system inspection modules    │
 │    Service, File, User, NixPackage,                  │
-│    NixOption, SystemInfo                             │
+│    SystemInfo                                        │
 └─────────────────────────────────────────────────────┘
 ```
 

@@ -21,7 +21,6 @@ def test_example(host: Fixture[Host]):
 | `file(path)` | `File` | File inspector |
 | `user(name)` | `User` | User inspector |
 | `nix_package(name)` | `NixPackage` | Nix package inspector |
-| `nix_option(path)` | `NixOption` | NixOS option inspector |
 | `system_info()` | `SystemInfo` | OS information |
 
 ## Async namespace
