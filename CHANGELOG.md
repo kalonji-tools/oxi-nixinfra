@@ -1,6 +1,20 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+## [0.3.0] - 2026-06-19
+
+### Features
+
+
+- MkDocs setup and configuration (#76)
+- Internals book setup with mdbook (#81)
+- Add nix_module! and register_modules! proc macros (#25)
+- Migrate all modules and Host to proc macros (#25)
+- Add Process, Socket, MountPoint, Sysctl, Environment modules (#17, #18, #19, #20, #21)
+- Conftest reads OXITEST_HOST env var (#93)
+- Configure VM for full integration tests (#93)
+- Run full integration suite in NixOS VM (#93)
+
 ## [0.2.0] - 2026-06-16
 
 ### Features
