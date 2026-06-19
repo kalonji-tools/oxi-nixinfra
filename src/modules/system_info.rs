@@ -79,7 +79,12 @@ pub async fn specialisations_impl(inner: &HostInner) -> Result<Vec<String>, Back
 oxi_nixinfra_macros::nix_module! {
     SystemInfo {
         fields {},
-        new() {},
+        cache {
+            boot_info_cache: std::sync::OnceLock<BootInfo>,
+        },
+        new() {
+            boot_info_cache: std::sync::OnceLock::new(),
+        },
         methods {
             fn nixos_version() -> String => nixos_version_impl;
             fn system_profile() -> String => system_profile_impl;
@@ -89,22 +94,37 @@ oxi_nixinfra_macros::nix_module! {
     }
 }
 
+// Private helper — NOT a pymethod
+impl SystemInfo {
+    fn cached_boot_info(&self) -> pyo3::prelude::PyResult<&BootInfo> {
+        if let Some(cached) = self.boot_info_cache.get() {
+            return Ok(cached);
+        }
+        let info = self
+            .inner
+            .runtime
+            .block_on(boot_info_impl(&self.inner))
+            .map_err(crate::helpers::backend_err_to_py)?;
+        // Another thread may have raced us; that's fine — OnceLock ignores
+        // the second set and we return whichever value won.
+        let _ = self.boot_info_cache.set(info);
+        Ok(self.boot_info_cache.get().expect("just set"))
+    }
+}
+
 // Methods that don't follow the standard pattern (extract fields from BootInfo)
 #[pyo3::prelude::pymethods]
 impl SystemInfo {
     fn kernel_version(&self) -> pyo3::prelude::PyResult<String> {
-        let info = crate::helpers::wrap_sync(&self.inner, boot_info_impl(&self.inner))?;
-        Ok(info.kernel_version)
+        Ok(self.cached_boot_info()?.kernel_version.clone())
     }
 
     fn arch(&self) -> pyo3::prelude::PyResult<String> {
-        let info = crate::helpers::wrap_sync(&self.inner, boot_info_impl(&self.inner))?;
-        Ok(info.arch)
+        Ok(self.cached_boot_info()?.arch.clone())
     }
 
     fn label(&self) -> pyo3::prelude::PyResult<String> {
-        let info = crate::helpers::wrap_sync(&self.inner, boot_info_impl(&self.inner))?;
-        Ok(info.label)
+        Ok(self.cached_boot_info()?.label.clone())
     }
 }
 
@@ -279,5 +299,29 @@ mod tests {
     #[test]
     fn test_parse_kernel_version_unknown() {
         assert_eq!(parse_kernel_version(""), "unknown");
+    }
+
+    #[test]
+    fn test_boot_info_cached_across_calls() {
+        let boot_json = br#"{"org.nixos.bootspec.v1":{"kernel":"/nix/store/abc123abc123abc123abc123abc123ab-linux-6.12.83/bzImage","system":"x86_64-linux","label":"NixOS Xantusia 25.11 (Linux 6.12.83)"}}"#;
+        let inner = make_inner(vec![RawOutput {
+            rc: 0,
+            stdout: boot_json.to_vec(),
+            stderr: vec![],
+        }]);
+        let inner = std::sync::Arc::new(inner);
+        let sys = SystemInfo {
+            inner: std::sync::Arc::clone(&inner),
+            boot_info_cache: std::sync::OnceLock::new(),
+        };
+        // First call populates cache (consumes the one mock response)
+        let info1 = sys.cached_boot_info().unwrap();
+        assert_eq!(info1.kernel_version, "6.12.83");
+        // Second call hits cache (no mock response needed — would panic otherwise)
+        let info2 = sys.cached_boot_info().unwrap();
+        assert_eq!(info2.arch, "x86_64-linux");
+        // Third call also cached
+        let info3 = sys.cached_boot_info().unwrap();
+        assert_eq!(info3.label, "NixOS Xantusia 25.11 (Linux 6.12.83)");
     }
 }
