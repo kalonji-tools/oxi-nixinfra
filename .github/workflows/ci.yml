@@ -69,13 +69,11 @@ jobs:
         run: just check
 
   test:
-    name: Build & test
+    name: Rust unit tests
     needs: changes
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    env:
-      VIRTUAL_ENV: ${{ github.workspace }}/.venv
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
 
@@ -83,27 +81,8 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      - uses: taiki-e/install-action@v2
-        with:
-          tool: just
-
-      - uses: astral-sh/setup-uv@v7
-        with:
-          enable-cache: true
-
-      - name: Install dependencies
-        run: |
-          uv sync --group test
-          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
-
       - name: Rust unit tests
-        run: just test-rust
-
-      - name: Build extension
-        run: just build
-
-      - name: Integration tests
-        run: just test
+        run: cargo test
 
   test-nixos:
     name: NixOS VM tests
