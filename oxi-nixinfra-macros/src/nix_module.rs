@@ -7,10 +7,15 @@ use syn::{
 };
 
 /// Top-level input: `nix_module! { #[doc = "..."] Service { ... } }`
+///
+/// Optional `cache { field: Type, ... }` block declares fields that are part of
+/// the struct and constructor but are NOT passed to impl functions, NOT cloned
+/// for async methods, and NOT used in `__repr__`.
 pub struct NixModuleDef {
     pub attrs: Vec<Attribute>,
     pub name: Ident,
     pub fields: Vec<FieldDef>,
+    pub cache_fields: Vec<FieldDef>,
     pub constructor: ConstructorDef,
     pub methods: Vec<MethodDef>,
 }
@@ -67,6 +72,18 @@ impl Parse for NixModuleDef {
         let fields = parse_fields(&content)?;
         content.parse::<Token![,]>().ok();
 
+        // Parse optional `cache { ... }`
+        let cache_fields = if content.peek(Ident)
+            && content.fork().parse::<Ident>().is_ok_and(|id| id == "cache")
+        {
+            let _: Ident = content.parse()?; // "cache"
+            let cf = parse_fields(&content)?;
+            content.parse::<Token![,]>().ok();
+            cf
+        } else {
+            Vec::new()
+        };
+
         // Parse `new(...) { ... }`
         let _: Ident = content.parse()?; // "new"
         let constructor = parse_constructor(&content)?;
@@ -81,6 +98,7 @@ impl Parse for NixModuleDef {
             attrs,
             name,
             fields,
+            cache_fields,
             constructor,
             methods,
         })
@@ -216,6 +234,7 @@ impl NixModuleDef {
         let field_defs: Vec<_> = self
             .fields
             .iter()
+            .chain(self.cache_fields.iter())
             .map(|f| {
                 let fname = &f.name;
                 let fty = &f.ty;
