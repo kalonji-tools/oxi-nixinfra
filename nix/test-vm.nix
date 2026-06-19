@@ -10,6 +10,9 @@
     };
   };
 
+  # Nix daemon — needed by test_nix_daemon_running and related tests
+  nix.enable = true;
+
   users.users.root.password = "";
 
   networking.firewall.allowedTCPPorts = [ 22 ];
@@ -20,8 +23,8 @@
     iproute2      # ss
     util-linux    # findmnt
     coreutils     # printenv, readlink, stat, etc.
-    unzip         # extract .so from wheel
-    python312     # runtime for smoke tests
+    python312     # runtime
+    python312Packages.pip  # install wheels inside VM
     openssh       # SSH client (needed by the SSH backend to connect to localhost)
   ];
 
