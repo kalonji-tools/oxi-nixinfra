@@ -68,96 +68,128 @@ oxi_nixinfra_macros::nix_module! {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::backend::mock::MockBackend;
+    use crate::backend::mock::TestHarness;
     use crate::command::RawOutput;
-
-    fn make_inner(responses: Vec<RawOutput>) -> HostInner {
-        HostInner {
-            backend: Box::new(MockBackend::new(responses)),
-            runtime: tokio::runtime::Runtime::new().unwrap(),
-            connection_string: "mock://".to_owned(),
-        }
-    }
 
     const FINDMNT_JSON: &[u8] = br#"{"filesystems": [{"target":"/","source":"/dev/sda1","fstype":"ext4","options":"rw,relatime"}]}"#;
 
     #[test]
     fn test_exists_true() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: FINDMNT_JSON.to_vec(),
             stderr: vec![],
         }]);
-        assert!(inner.runtime.block_on(exists_impl(&inner, "/")).unwrap());
+        assert!(
+            h.inner
+                .runtime
+                .block_on(exists_impl(&h.inner, "/"))
+                .unwrap()
+        );
+        assert_eq!(
+            h.calls(),
+            [(
+                "findmnt".into(),
+                vec!["--json".into(), "--target".into(), "/".into()]
+            )]
+        );
     }
 
     #[test]
     fn test_exists_false() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 1,
             stdout: vec![],
             stderr: vec![],
         }]);
         assert!(
-            !inner
+            !h.inner
                 .runtime
-                .block_on(exists_impl(&inner, "/nonexistent"))
+                .block_on(exists_impl(&h.inner, "/nonexistent"))
                 .unwrap()
         );
     }
 
     #[test]
     fn test_filesystem() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: FINDMNT_JSON.to_vec(),
             stderr: vec![],
         }]);
         assert_eq!(
-            inner
+            h.inner
                 .runtime
-                .block_on(filesystem_impl(&inner, "/"))
+                .block_on(filesystem_impl(&h.inner, "/"))
                 .unwrap(),
             "ext4"
+        );
+        assert_eq!(
+            h.calls(),
+            [(
+                "findmnt".into(),
+                vec!["--json".into(), "--target".into(), "/".into()]
+            )]
         );
     }
 
     #[test]
     fn test_device() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: FINDMNT_JSON.to_vec(),
             stderr: vec![],
         }]);
         assert_eq!(
-            inner.runtime.block_on(device_impl(&inner, "/")).unwrap(),
+            h.inner
+                .runtime
+                .block_on(device_impl(&h.inner, "/"))
+                .unwrap(),
             "/dev/sda1"
+        );
+        assert_eq!(
+            h.calls(),
+            [(
+                "findmnt".into(),
+                vec!["--json".into(), "--target".into(), "/".into()]
+            )]
         );
     }
 
     #[test]
     fn test_options() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: FINDMNT_JSON.to_vec(),
             stderr: vec![],
         }]);
         assert_eq!(
-            inner.runtime.block_on(options_impl(&inner, "/")).unwrap(),
+            h.inner
+                .runtime
+                .block_on(options_impl(&h.inner, "/"))
+                .unwrap(),
             vec!["rw", "relatime"]
+        );
+        assert_eq!(
+            h.calls(),
+            [(
+                "findmnt".into(),
+                vec!["--json".into(), "--target".into(), "/".into()]
+            )]
         );
     }
 
     #[test]
     fn test_filesystem_error_on_not_found() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 1,
             stdout: vec![],
             stderr: b"findmnt: target not found\n".to_vec(),
         }]);
-        let err = inner
+        let err = h
+            .inner
             .runtime
-            .block_on(filesystem_impl(&inner, "/nonexistent"))
+            .block_on(filesystem_impl(&h.inner, "/nonexistent"))
             .unwrap_err();
         assert!(err.to_string().contains("findmnt failed"));
     }

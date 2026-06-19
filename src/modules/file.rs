@@ -165,146 +165,179 @@ oxi_nixinfra_macros::nix_module! {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::backend::mock::MockBackend;
+    use crate::backend::mock::TestHarness;
     use crate::command::RawOutput;
-
-    fn make_inner(responses: Vec<RawOutput>) -> HostInner {
-        HostInner {
-            backend: Box::new(MockBackend::new(responses)),
-            runtime: tokio::runtime::Runtime::new().unwrap(),
-            connection_string: "mock://".to_owned(),
-        }
-    }
 
     #[test]
     fn test_mode_octal_parse() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: b"644\n".to_vec(),
             stderr: vec![],
         }]);
-        let mode = inner
+        let mode = h
+            .inner
             .runtime
-            .block_on(mode_impl(&inner, "/etc/passwd"))
+            .block_on(mode_impl(&h.inner, "/etc/passwd"))
             .unwrap();
         assert_eq!(mode, 0o644);
+        assert_eq!(
+            h.calls(),
+            [(
+                "stat".into(),
+                vec!["-Lc".into(), "%a".into(), "/etc/passwd".into()]
+            )]
+        );
     }
 
     #[test]
     fn test_md5sum_split_field() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: b"d41d8cd98f00b204e9800998ecf8427e  /dev/null\n".to_vec(),
             stderr: vec![],
         }]);
-        let hash = inner
+        let hash = h
+            .inner
             .runtime
-            .block_on(md5sum_impl(&inner, "/dev/null"))
+            .block_on(md5sum_impl(&h.inner, "/dev/null"))
             .unwrap();
         assert_eq!(hash, "d41d8cd98f00b204e9800998ecf8427e");
+        assert_eq!(h.calls(), [("md5sum".into(), vec!["/dev/null".into()])]);
     }
 
     #[test]
     fn test_uid_parse_int() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: b"1000\n".to_vec(),
             stderr: vec![],
         }]);
-        let uid = inner
+        let uid = h
+            .inner
             .runtime
-            .block_on(uid_impl(&inner, "/home/user"))
+            .block_on(uid_impl(&h.inner, "/home/user"))
             .unwrap();
         assert_eq!(uid, 1000);
+        assert_eq!(
+            h.calls(),
+            [(
+                "stat".into(),
+                vec!["-Lc".into(), "%u".into(), "/home/user".into()]
+            )]
+        );
     }
 
     #[test]
     fn test_contains_found() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: vec![],
             stderr: vec![],
         }]);
         assert!(
-            inner
+            h.inner
                 .runtime
-                .block_on(contains_impl(&inner, "/etc/hosts", "localhost"))
+                .block_on(contains_impl(&h.inner, "/etc/hosts", "localhost"))
                 .unwrap()
+        );
+        assert_eq!(
+            h.calls(),
+            [(
+                "grep".into(),
+                vec![
+                    "-qs".into(),
+                    "--".into(),
+                    "localhost".into(),
+                    "/etc/hosts".into()
+                ]
+            )]
         );
     }
 
     #[test]
     fn test_contains_not_found() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 1,
             stdout: vec![],
             stderr: vec![],
         }]);
         assert!(
-            !inner
+            !h.inner
                 .runtime
-                .block_on(contains_impl(&inner, "/etc/hosts", "nonexistent"))
+                .block_on(contains_impl(&h.inner, "/etc/hosts", "nonexistent"))
                 .unwrap()
         );
     }
 
     #[test]
     fn test_is_nix_managed_true() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: b"/nix/store/h0p1rl4srn0j3arkiahpwrv8fp8vpp8l-hosts\n".to_vec(),
             stderr: vec![],
         }]);
         assert!(
-            inner
+            h.inner
                 .runtime
-                .block_on(is_nix_managed_impl(&inner, "/etc/hosts"))
+                .block_on(is_nix_managed_impl(&h.inner, "/etc/hosts"))
                 .unwrap()
+        );
+        assert_eq!(
+            h.calls(),
+            [("readlink".into(), vec!["-f".into(), "/etc/hosts".into()])]
         );
     }
 
     #[test]
     fn test_is_nix_managed_false() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: b"/etc/resolv.conf\n".to_vec(),
             stderr: vec![],
         }]);
         assert!(
-            !inner
+            !h.inner
                 .runtime
-                .block_on(is_nix_managed_impl(&inner, "/etc/resolv.conf"))
+                .block_on(is_nix_managed_impl(&h.inner, "/etc/resolv.conf"))
                 .unwrap()
         );
     }
 
     #[test]
     fn test_file_store_path_some() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: b"/nix/store/x1nwcwf197wb5d7infxr4il5l4gzpdp3-nix.conf\n".to_vec(),
             stderr: vec![],
         }]);
         assert_eq!(
-            inner
+            h.inner
                 .runtime
-                .block_on(file_store_path_impl(&inner, "/etc/nix/nix.conf"))
+                .block_on(file_store_path_impl(&h.inner, "/etc/nix/nix.conf"))
                 .unwrap(),
             Some("/nix/store/x1nwcwf197wb5d7infxr4il5l4gzpdp3-nix.conf".to_owned())
+        );
+        assert_eq!(
+            h.calls(),
+            [(
+                "readlink".into(),
+                vec!["-f".into(), "/etc/nix/nix.conf".into()]
+            )]
         );
     }
 
     #[test]
     fn test_file_store_path_none() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: b"/etc/passwd\n".to_vec(),
             stderr: vec![],
         }]);
         assert_eq!(
-            inner
+            h.inner
                 .runtime
-                .block_on(file_store_path_impl(&inner, "/etc/passwd"))
+                .block_on(file_store_path_impl(&h.inner, "/etc/passwd"))
                 .unwrap(),
             None
         );
@@ -312,15 +345,23 @@ mod tests {
 
     #[test]
     fn test_listdir_parse() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: b"file1.txt\nfile2.txt\ndir1\n".to_vec(),
             stderr: vec![],
         }]);
-        let entries = inner
+        let entries = h
+            .inner
             .runtime
-            .block_on(listdir_impl(&inner, "/tmp"))
+            .block_on(listdir_impl(&h.inner, "/tmp"))
             .unwrap();
         assert_eq!(entries, vec!["file1.txt", "file2.txt", "dir1"]);
+        assert_eq!(
+            h.calls(),
+            [(
+                "ls".into(),
+                vec!["-1".into(), "-q".into(), "--".into(), "/tmp".into()]
+            )]
+        );
     }
 }

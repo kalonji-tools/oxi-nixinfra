@@ -47,75 +47,82 @@ oxi_nixinfra_macros::nix_module! {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::backend::mock::MockBackend;
+    use crate::backend::mock::TestHarness;
     use crate::command::RawOutput;
-
-    fn make_inner(responses: Vec<RawOutput>) -> HostInner {
-        HostInner {
-            backend: Box::new(MockBackend::new(responses)),
-            runtime: tokio::runtime::Runtime::new().unwrap(),
-            connection_string: "mock://".to_owned(),
-        }
-    }
 
     #[test]
     fn test_value_returns_trimmed() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: b"1\n".to_vec(),
             stderr: vec![],
         }]);
         assert_eq!(
-            inner
+            h.inner
                 .runtime
-                .block_on(value_impl(&inner, "net.ipv4.ip_forward"))
+                .block_on(value_impl(&h.inner, "net.ipv4.ip_forward"))
                 .unwrap(),
             "1"
+        );
+        assert_eq!(
+            h.calls(),
+            [(
+                "sysctl".into(),
+                vec!["-n".into(), "net.ipv4.ip_forward".into()]
+            )]
         );
     }
 
     #[test]
     fn test_value_error_on_unknown_key() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 1,
             stdout: vec![],
             stderr: b"sysctl: cannot stat /proc/sys/nonexistent: No such file or directory\n"
                 .to_vec(),
         }]);
-        let err = inner
+        let err = h
+            .inner
             .runtime
-            .block_on(value_impl(&inner, "nonexistent"))
+            .block_on(value_impl(&h.inner, "nonexistent"))
             .unwrap_err();
         assert!(err.to_string().contains("sysctl failed"));
     }
 
     #[test]
     fn test_exists_true() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: b"1\n".to_vec(),
             stderr: vec![],
         }]);
         assert!(
-            inner
+            h.inner
                 .runtime
-                .block_on(exists_impl(&inner, "net.ipv4.ip_forward"))
+                .block_on(exists_impl(&h.inner, "net.ipv4.ip_forward"))
                 .unwrap()
+        );
+        assert_eq!(
+            h.calls(),
+            [(
+                "sysctl".into(),
+                vec!["-n".into(), "net.ipv4.ip_forward".into()]
+            )]
         );
     }
 
     #[test]
     fn test_exists_false() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 1,
             stdout: vec![],
             stderr: b"sysctl: cannot stat /proc/sys/nonexistent: No such file or directory\n"
                 .to_vec(),
         }]);
         assert!(
-            !inner
+            !h.inner
                 .runtime
-                .block_on(exists_impl(&inner, "nonexistent"))
+                .block_on(exists_impl(&h.inner, "nonexistent"))
                 .unwrap()
         );
     }

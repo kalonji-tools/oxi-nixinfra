@@ -67,71 +67,79 @@ oxi_nixinfra_macros::nix_module! {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::backend::mock::MockBackend;
+    use crate::backend::mock::TestHarness;
     use crate::command::RawOutput;
-
-    fn make_inner(responses: Vec<RawOutput>) -> HostInner {
-        HostInner {
-            backend: Box::new(MockBackend::new(responses)),
-            runtime: tokio::runtime::Runtime::new().unwrap(),
-            connection_string: "mock://".to_owned(),
-        }
-    }
 
     #[test]
     fn test_exists_true() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: b"Value:\n  true\n".to_vec(),
             stderr: vec![],
         }]);
         assert!(
-            inner
+            h.inner
                 .runtime
-                .block_on(exists_impl(&inner, "services.openssh.enable"))
+                .block_on(exists_impl(&h.inner, "services.openssh.enable"))
                 .unwrap()
+        );
+        assert_eq!(
+            h.calls(),
+            [(
+                "nixos-option".into(),
+                vec!["services.openssh.enable".into()]
+            )]
         );
     }
 
     #[test]
     fn test_exists_false() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 1,
             stdout: vec![],
             stderr: b"error: option not found\n".to_vec(),
         }]);
         assert!(
-            !inner
+            !h.inner
                 .runtime
-                .block_on(exists_impl(&inner, "services.nonexistent"))
+                .block_on(exists_impl(&h.inner, "services.nonexistent"))
                 .unwrap()
         );
     }
 
     #[test]
     fn test_value_parse() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: b"Value:\n  true\n\nDefault:\n  false\n".to_vec(),
             stderr: vec![],
         }]);
-        let val = inner
+        let val = h
+            .inner
             .runtime
-            .block_on(value_impl(&inner, "services.openssh.enable"))
+            .block_on(value_impl(&h.inner, "services.openssh.enable"))
             .unwrap();
         assert_eq!(val, "true");
+        assert_eq!(
+            h.calls(),
+            [(
+                "nixos-option".into(),
+                vec!["services.openssh.enable".into()]
+            )]
+        );
     }
 
     #[test]
     fn test_value_error_on_failure() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 1,
             stdout: vec![],
             stderr: b"error: option not found\n".to_vec(),
         }]);
-        let err = inner
+        let err = h
+            .inner
             .runtime
-            .block_on(value_impl(&inner, "nonexistent.option"))
+            .block_on(value_impl(&h.inner, "nonexistent.option"))
             .unwrap_err();
         assert!(err.to_string().contains("nixos-option failed"));
     }

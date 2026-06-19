@@ -41,41 +41,37 @@ oxi_nixinfra_macros::nix_module! {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::backend::mock::MockBackend;
+    use crate::backend::mock::TestHarness;
     use crate::command::RawOutput;
-
-    fn make_inner(responses: Vec<RawOutput>) -> HostInner {
-        HostInner {
-            backend: Box::new(MockBackend::new(responses)),
-            runtime: tokio::runtime::Runtime::new().unwrap(),
-            connection_string: "mock://".to_owned(),
-        }
-    }
 
     #[test]
     fn test_get_returns_value() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: b"/usr/bin:/bin\n".to_vec(),
             stderr: vec![],
         }]);
         assert_eq!(
-            inner.runtime.block_on(get_impl(&inner, "PATH")).unwrap(),
+            h.inner
+                .runtime
+                .block_on(get_impl(&h.inner, "PATH"))
+                .unwrap(),
             Some("/usr/bin:/bin".to_owned())
         );
+        assert_eq!(h.calls(), [("printenv".into(), vec!["PATH".into()])]);
     }
 
     #[test]
     fn test_get_returns_none_for_unset() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 1,
             stdout: vec![],
             stderr: vec![],
         }]);
         assert_eq!(
-            inner
+            h.inner
                 .runtime
-                .block_on(get_impl(&inner, "NONEXISTENT_VAR"))
+                .block_on(get_impl(&h.inner, "NONEXISTENT_VAR"))
                 .unwrap(),
             None
         );
@@ -83,25 +79,31 @@ mod tests {
 
     #[test]
     fn test_exists_true() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: b"/home/user\n".to_vec(),
             stderr: vec![],
         }]);
-        assert!(inner.runtime.block_on(exists_impl(&inner, "HOME")).unwrap());
+        assert!(
+            h.inner
+                .runtime
+                .block_on(exists_impl(&h.inner, "HOME"))
+                .unwrap()
+        );
+        assert_eq!(h.calls(), [("printenv".into(), vec!["HOME".into()])]);
     }
 
     #[test]
     fn test_exists_false() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 1,
             stdout: vec![],
             stderr: vec![],
         }]);
         assert!(
-            !inner
+            !h.inner
                 .runtime
-                .block_on(exists_impl(&inner, "NONEXISTENT_VAR"))
+                .block_on(exists_impl(&h.inner, "NONEXISTENT_VAR"))
                 .unwrap()
         );
     }
