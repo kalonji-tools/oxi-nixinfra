@@ -332,76 +332,84 @@ impl AsyncUser {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::backend::mock::MockBackend;
+    use crate::backend::mock::TestHarness;
     use crate::command::RawOutput;
-
-    fn make_inner(responses: Vec<RawOutput>) -> HostInner {
-        HostInner {
-            backend: Box::new(MockBackend::new(responses)),
-            runtime: tokio::runtime::Runtime::new().unwrap(),
-            connection_string: "mock://".to_owned(),
-        }
-    }
 
     #[test]
     fn test_getent_field_home() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: b"testuser:x:1000:1000:Test User:/home/testuser:/bin/bash\n".to_vec(),
             stderr: vec![],
         }]);
-        let home = inner
+        let home = h
+            .inner
             .runtime
-            .block_on(getent_field(&inner, "testuser", 5))
+            .block_on(getent_field(&h.inner, "testuser", 5))
             .unwrap();
         assert_eq!(home, "/home/testuser");
+        assert_eq!(
+            h.calls(),
+            [("getent".into(), vec!["passwd".into(), "testuser".into()])]
+        );
     }
 
     #[test]
     fn test_getent_field_shell() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: b"testuser:x:1000:1000:Test User:/home/testuser:/bin/zsh\n".to_vec(),
             stderr: vec![],
         }]);
-        let shell = inner
+        let shell = h
+            .inner
             .runtime
-            .block_on(getent_field(&inner, "testuser", 6))
+            .block_on(getent_field(&h.inner, "testuser", 6))
             .unwrap();
         assert_eq!(shell, "/bin/zsh");
     }
 
     #[test]
     fn test_groups_splitting() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: b"wheel docker users\n".to_vec(),
             stderr: vec![],
         }]);
-        let groups = inner
+        let groups = h
+            .inner
             .runtime
-            .block_on(groups_impl(&inner, "testuser"))
+            .block_on(groups_impl(&h.inner, "testuser"))
             .unwrap();
         assert_eq!(groups, vec!["wheel", "docker", "users"]);
+        assert_eq!(
+            h.calls(),
+            [("id".into(), vec!["-nG".into(), "testuser".into()])]
+        );
     }
 
     #[test]
     fn test_uid_parse() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 0,
             stdout: b"1000\n".to_vec(),
             stderr: vec![],
         }]);
-        let uid = inner
+        let uid = h
+            .inner
             .runtime
-            .block_on(uid_impl(&inner, "testuser"))
+            .block_on(uid_impl(&h.inner, "testuser"))
             .unwrap();
         assert_eq!(uid, 1000);
+        assert_eq!(
+            h.calls(),
+            [("id".into(), vec!["-u".into(), "testuser".into()])]
+        );
     }
 
     #[test]
     fn test_is_declared_true() {
-        let inner = make_inner(vec![
+        let h = TestHarness::new(vec![
             RawOutput {
                 rc: 0,
                 stdout: b"/nix/store/abc123-users-groups.json\n".to_vec(),
@@ -414,16 +422,33 @@ mod tests {
             },
         ]);
         assert!(
-            inner
+            h.inner
                 .runtime
-                .block_on(is_declared_impl(&inner, "testuser"))
+                .block_on(is_declared_impl(&h.inner, "testuser"))
                 .unwrap()
+        );
+        assert_eq!(
+            h.calls(),
+            [
+                (
+                    "grep".into(),
+                    vec![
+                        "-oP".into(),
+                        r"/nix/store/[a-z0-9]+-users-groups\.json".into(),
+                        "/run/current-system/activate".into()
+                    ]
+                ),
+                (
+                    "cat".into(),
+                    vec!["/nix/store/abc123-users-groups.json".into()]
+                )
+            ]
         );
     }
 
     #[test]
     fn test_is_declared_false() {
-        let inner = make_inner(vec![
+        let h = TestHarness::new(vec![
             RawOutput {
                 rc: 0,
                 stdout: b"/nix/store/abc123-users-groups.json\n".to_vec(),
@@ -436,24 +461,24 @@ mod tests {
             },
         ]);
         assert!(
-            !inner
+            !h.inner
                 .runtime
-                .block_on(is_declared_impl(&inner, "imperative-user"))
+                .block_on(is_declared_impl(&h.inner, "imperative-user"))
                 .unwrap()
         );
     }
 
     #[test]
     fn test_is_declared_no_manifest() {
-        let inner = make_inner(vec![RawOutput {
+        let h = TestHarness::new(vec![RawOutput {
             rc: 1,
             stdout: b"".to_vec(),
             stderr: vec![],
         }]);
         assert!(
-            !inner
+            !h.inner
                 .runtime
-                .block_on(is_declared_impl(&inner, "anyone"))
+                .block_on(is_declared_impl(&h.inner, "anyone"))
                 .unwrap()
         );
     }
