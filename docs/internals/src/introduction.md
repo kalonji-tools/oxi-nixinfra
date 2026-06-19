@@ -53,7 +53,6 @@ oxi-nixinfra/
 │       ├── file.rs               # File + AsyncFile
 │       ├── user.rs               # User + AsyncUser
 │       ├── nix_package.rs        # NixPackage + AsyncNixPackage
-│       ├── nix_option.rs         # NixOption + AsyncNixOption
 │       └── system_info.rs        # SystemInfo + AsyncSystemInfo
 ├── python/
 │   └── oxi_nixinfra/

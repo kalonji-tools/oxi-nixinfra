@@ -64,7 +64,6 @@ nav:
     - Test files: how-to/test-files.md
     - Test users: how-to/test-users.md
     - Test Nix packages: how-to/test-nix-packages.md
-    - Test NixOS options: how-to/test-nix-options.md
     - Use async tests: how-to/use-async-tests.md
     - Migrate from testinfra: how-to/migrate-from-testinfra.md
   - Reference:
@@ -76,7 +75,6 @@ nav:
       - File: reference/modules/file.md
       - User: reference/modules/user.md
       - NixPackage: reference/modules/nix-package.md
-      - NixOption: reference/modules/nix-option.md
       - SystemInfo: reference/modules/system-info.md
   - Explanation:
     - Why NixOS only: explanation/why-nixos-only.md
