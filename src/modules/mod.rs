@@ -1,7 +1,6 @@
 pub mod environment;
 pub mod file;
 pub mod mountpoint;
-pub mod nix_option;
 pub mod nix_package;
 pub mod process;
 pub mod service;
