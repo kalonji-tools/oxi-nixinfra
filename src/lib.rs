@@ -5,6 +5,7 @@ mod command;
 mod helpers;
 mod host;
 mod modules;
+mod parse;
 
 #[pymodule]
 fn _oxi_nixinfra(m: &Bound<'_, PyModule>) -> PyResult<()> {
