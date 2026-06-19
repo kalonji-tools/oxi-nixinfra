@@ -12,11 +12,10 @@ async fn find_store_path(inner: &HostInner, name: &str) -> Result<Option<String>
             &["-q", "--references", "/run/current-system/sw"],
         )
         .await?;
-    let stdout = String::from_utf8_lossy(&out.stdout);
-    Ok(stdout
+    Ok(out
         .lines()
         .find(|line| line.contains(name))
-        .map(std::borrow::ToOwned::to_owned))
+        .map(ToOwned::to_owned))
 }
 
 pub fn parse_version_from_store_path(store_path: &str, name: &str) -> Option<String> {

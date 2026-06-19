@@ -54,26 +54,21 @@ fn parse_host_port(s: &str, proto: &str) -> Result<(String, u16), BackendError> 
 
 pub async fn is_listening_impl(inner: &HostInner, spec: &str) -> Result<bool, BackendError> {
     let parsed = parse_socket_spec(spec)?;
-    let out = match &parsed {
+    match &parsed {
         SocketSpec::Tcp { address, port } => {
             let needle = format!("{address}:{port}");
             let out = inner.execute("ss", &["-lnH", "-t"]).await?;
-            let stdout = String::from_utf8_lossy(&out.stdout);
-            return Ok(stdout.lines().any(|line| line.contains(&needle)));
+            Ok(out.lines().any(|line| line.contains(&needle)))
         }
         SocketSpec::Udp { address, port } => {
             let needle = format!("{address}:{port}");
             let out = inner.execute("ss", &["-lnH", "-u"]).await?;
-            let stdout = String::from_utf8_lossy(&out.stdout);
-            return Ok(stdout.lines().any(|line| line.contains(&needle)));
+            Ok(out.lines().any(|line| line.contains(&needle)))
         }
-        SocketSpec::Unix { path: _ } => inner.execute("ss", &["-lnH", "-x"]).await?,
-    };
-    let stdout = String::from_utf8_lossy(&out.stdout);
-    if let SocketSpec::Unix { path } = &parsed {
-        Ok(stdout.lines().any(|line| line.contains(path.as_str())))
-    } else {
-        unreachable!()
+        SocketSpec::Unix { path } => {
+            let out = inner.execute("ss", &["-lnH", "-x"]).await?;
+            Ok(out.lines().any(|line| line.contains(path.as_str())))
+        }
     }
 }
 

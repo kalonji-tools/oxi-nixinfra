@@ -7,60 +7,46 @@ use crate::host::HostInner;
 
 pub async fn exists_impl(inner: &HostInner, name: &str) -> Result<bool, BackendError> {
     let out = inner.execute("id", &[name]).await?;
-    Ok(out.rc == 0)
+    Ok(out.rc() == 0)
 }
 
 pub async fn name_impl(inner: &HostInner) -> Result<String, BackendError> {
     let out = inner.execute("id", &["-nu"]).await?;
-    let stdout = String::from_utf8_lossy(&out.stdout);
-    Ok(stdout.trim().to_owned())
+    Ok(out.stdout().to_owned())
 }
 
 pub async fn uid_impl(inner: &HostInner, name: &str) -> Result<i32, BackendError> {
     let out = inner.execute("id", &["-u", name]).await?;
-    let stdout = String::from_utf8_lossy(&out.stdout);
-    stdout
-        .trim()
-        .parse::<i32>()
-        .map_err(|e| BackendError::Execution(format!("failed to parse uid: {e}")))
+    out.parse_int("uid")
 }
 
 pub async fn gid_impl(inner: &HostInner, name: &str) -> Result<i32, BackendError> {
     let out = inner.execute("id", &["-g", name]).await?;
-    let stdout = String::from_utf8_lossy(&out.stdout);
-    stdout
-        .trim()
-        .parse::<i32>()
-        .map_err(|e| BackendError::Execution(format!("failed to parse gid: {e}")))
+    out.parse_int("gid")
 }
 
 pub async fn group_impl(inner: &HostInner, name: &str) -> Result<String, BackendError> {
     let out = inner.execute("id", &["-ng", name]).await?;
-    let stdout = String::from_utf8_lossy(&out.stdout);
-    Ok(stdout.trim().to_owned())
+    Ok(out.stdout().to_owned())
 }
 
 pub async fn groups_impl(inner: &HostInner, name: &str) -> Result<Vec<String>, BackendError> {
     let out = inner.execute("id", &["-nG", name]).await?;
-    let stdout = String::from_utf8_lossy(&out.stdout);
-    Ok(stdout
+    Ok(out
+        .stdout()
         .split_whitespace()
-        .map(std::borrow::ToOwned::to_owned)
+        .map(ToOwned::to_owned)
         .collect())
 }
 
 async fn getent_field(inner: &HostInner, name: &str, index: usize) -> Result<String, BackendError> {
     let out = inner.execute("getent", &["passwd", name]).await?;
-    let stdout = String::from_utf8_lossy(&out.stdout);
-    let line = stdout.trim();
-    line.split(':')
-        .nth(index)
-        .map(std::borrow::ToOwned::to_owned)
-        .ok_or_else(|| {
-            BackendError::Execution(format!(
-                "failed to parse getent field {index} for user: {name}"
-            ))
-        })
+    out.delimited_field(
+        ':',
+        index,
+        &format!("getent field {index} for user: {name}"),
+    )
+    .map(ToOwned::to_owned)
 }
 
 pub async fn home_impl(inner: &HostInner, name: &str) -> Result<String, BackendError> {
@@ -82,21 +68,19 @@ pub async fn is_declared_impl(inner: &HostInner, name: &str) -> Result<bool, Bac
             ],
         )
         .await?;
-    if out.rc != 0 {
+    if out.rc() != 0 {
         return Ok(false);
     }
-    let manifest_path = String::from_utf8_lossy(&out.stdout);
-    let manifest_path = manifest_path.trim();
+    let manifest_path = out.stdout();
     if manifest_path.is_empty() {
         return Ok(false);
     }
     let manifest = inner.execute("cat", &[manifest_path]).await?;
-    if manifest.rc != 0 {
+    if manifest.rc() != 0 {
         return Ok(false);
     }
-    let json = String::from_utf8_lossy(&manifest.stdout);
     let needle = format!("\"name\":\"{name}\"");
-    Ok(json.contains(&needle))
+    Ok(manifest.stdout().contains(&needle))
 }
 
 /// Resolve the effective user name: use stored name if present, otherwise run `id -nu`.

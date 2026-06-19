@@ -9,15 +9,13 @@ use crate::host::HostInner;
 
 pub async fn is_running_impl(inner: &HostInner, name: &str) -> Result<bool, BackendError> {
     let out = inner.execute("systemctl", &["is-active", name]).await?;
-    Ok(out.rc == 0)
+    Ok(out.rc() == 0)
 }
 
 pub async fn is_managed_impl(inner: &HostInner, name: &str) -> Result<bool, BackendError> {
     let path = format!("/etc/systemd/system/{name}.service");
     let out = inner.execute("readlink", &["-f", &path]).await?;
-    let stdout = String::from_utf8_lossy(&out.stdout);
-    let resolved = stdout.trim();
-    Ok(out.rc == 0 && resolved.starts_with("/nix/store/"))
+    Ok(out.rc() == 0 && out.stdout().starts_with("/nix/store/"))
 }
 
 pub async fn store_path_impl(
@@ -26,9 +24,8 @@ pub async fn store_path_impl(
 ) -> Result<Option<String>, BackendError> {
     let path = format!("/etc/systemd/system/{name}.service");
     let out = inner.execute("readlink", &["-f", &path]).await?;
-    let stdout = String::from_utf8_lossy(&out.stdout);
-    let resolved = stdout.trim();
-    if out.rc == 0 && resolved.starts_with("/nix/store/") {
+    let resolved = out.stdout();
+    if out.rc() == 0 && resolved.starts_with("/nix/store/") {
         Ok(Some(resolved.to_owned()))
     } else {
         Ok(None)
@@ -42,16 +39,14 @@ pub async fn enablement_status_impl(inner: &HostInner, name: &str) -> Result<Str
             &["show", name, "-p", "UnitFileState", "--value"],
         )
         .await?;
-    let stdout = String::from_utf8_lossy(&out.stdout);
-    Ok(stdout.trim().to_owned())
+    Ok(out.stdout().to_owned())
 }
 
 pub async fn exists_impl(inner: &HostInner, name: &str) -> Result<bool, BackendError> {
     let out = inner
         .execute("systemctl", &["list-unit-files", "--no-pager"])
         .await?;
-    let stdout = String::from_utf8_lossy(&out.stdout);
-    Ok(stdout.lines().any(|line| line.starts_with(name)))
+    Ok(out.lines().any(|line| line.starts_with(name)))
 }
 
 pub async fn is_valid_impl(inner: &HostInner, name: &str) -> Result<bool, BackendError> {
@@ -61,7 +56,7 @@ pub async fn is_valid_impl(inner: &HostInner, name: &str) -> Result<bool, Backen
         format!("{name}.service")
     };
     let out = inner.execute("systemd-analyze", &["verify", &unit]).await?;
-    Ok(out.stdout.is_empty() && out.stderr.is_empty())
+    Ok(out.stdout_bytes().is_empty() && out.stderr_bytes().is_empty())
 }
 
 pub async fn properties_impl(
@@ -69,14 +64,7 @@ pub async fn properties_impl(
     name: &str,
 ) -> Result<HashMap<String, String>, BackendError> {
     let out = inner.execute("systemctl", &["show", name]).await?;
-    let stdout = String::from_utf8_lossy(&out.stdout);
-    let map = stdout
-        .lines()
-        .filter_map(|line| line.split_once('='))
-        .filter(|(_, v)| !v.is_empty())
-        .map(|(k, v)| (k.to_owned(), v.to_owned()))
-        .collect();
-    Ok(map)
+    Ok(out.kv_pairs('='))
 }
 
 // ---------------------------------------------------------------------------

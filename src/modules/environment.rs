@@ -7,9 +7,8 @@ use crate::host::HostInner;
 
 pub async fn get_impl(inner: &HostInner, name: &str) -> Result<Option<String>, BackendError> {
     let out = inner.execute("printenv", &[name]).await?;
-    if out.rc == 0 {
-        let stdout = String::from_utf8_lossy(&out.stdout);
-        Ok(Some(stdout.trim_end_matches('\n').to_owned()))
+    if out.rc() == 0 {
+        Ok(Some(out.stdout_raw().trim_end_matches('\n').to_owned()))
     } else {
         Ok(None)
     }
@@ -17,7 +16,7 @@ pub async fn get_impl(inner: &HostInner, name: &str) -> Result<Option<String>, B
 
 pub async fn exists_impl(inner: &HostInner, name: &str) -> Result<bool, BackendError> {
     let out = inner.execute("printenv", &[name]).await?;
-    Ok(out.rc == 0)
+    Ok(out.rc() == 0)
 }
 
 // ---------------------------------------------------------------------------
