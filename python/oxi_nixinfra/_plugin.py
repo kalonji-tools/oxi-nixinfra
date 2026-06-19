@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import functools
 import os
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 from oxitest.plugin import Plugin
 
@@ -26,7 +28,7 @@ class NixosWrapper:
     def marker(self) -> str:
         return "nixos"
 
-    def wrap(self, test_fn, marker_args):
+    def wrap(self, test_fn: Callable[[], Any], marker_args: dict[str, Any]) -> Any:
         if not is_nixos():
             from oxitest._bridge.result import SkippedResult
 
@@ -37,7 +39,7 @@ class NixosWrapper:
 class HostProvider:
     """FixtureProvider that injects a Host fixture."""
 
-    def __init__(self, config: dict | None):
+    def __init__(self, config: dict[str, Any] | None):
         self._config = config or {}
 
     @property
@@ -63,7 +65,7 @@ class HostProvider:
         pass
 
 
-def oxitest_plugin(*, config: dict | None = None) -> Plugin:
+def oxitest_plugin(*, config: dict[str, Any] | None = None) -> Plugin:
     """Entry point called by oxitest's plugin loader."""
     return Plugin(
         fixture_providers=[HostProvider(config)],
