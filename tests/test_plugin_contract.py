@@ -8,6 +8,7 @@ otherwise surface as a runtime TypeError deep inside a test run.
 from __future__ import annotations
 
 import inspect
+import warnings
 
 
 def _protocol_methods(protocol_cls: type) -> dict[str, int]:
@@ -129,3 +130,30 @@ def test_oxitest_plugin_returns_valid_plugin():
             f"{type(wrapper).__name__} is missing ExecutionWrapper methods"
             " — oxitest will fail to call it at runtime"
         )
+
+
+def test_host_provider_warns_on_unknown_config_keys():
+    """HostProvider should warn when config contains unrecognized keys."""
+    from oxi_nixinfra._plugin import HostProvider
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        HostProvider({"host": "local://", "typo_key": "value"})
+
+    assert len(w) == 1, (
+        "HostProvider should emit exactly one warning for unrecognized config keys"
+    )
+    assert "typo_key" in str(w[0].message), (
+        "warning message should name the unrecognized key"
+    )
+
+
+def test_host_provider_no_warning_on_valid_config():
+    """HostProvider should not warn when all config keys are valid."""
+    from oxi_nixinfra._plugin import HostProvider
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        HostProvider({"host": "local://", "ssh_config": "/path"})
+
+    assert len(w) == 0, "HostProvider should not warn when all keys are valid"
