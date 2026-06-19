@@ -9,6 +9,10 @@ on:
 
 permissions: {}
 
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -44,6 +48,10 @@ jobs:
         run: |
           CURRENT=$(grep '^version' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
           if [ -n "${{ inputs.version_override }}" ]; then
+            if [[ ! "${{ inputs.version_override }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "::error::Invalid version format: '${{ inputs.version_override }}'. Expected X.Y.Z (e.g., 1.2.3)"
+              exit 1
+            fi
             NEXT="${{ inputs.version_override }}"
           else
             NEXT=$(git-cliff --bumped-version | sed 's/^v//')
