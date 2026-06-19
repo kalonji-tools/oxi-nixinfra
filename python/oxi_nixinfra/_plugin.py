@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import functools
 import os
+import warnings
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -39,8 +40,18 @@ class NixosWrapper:
 class HostProvider:
     """FixtureProvider that injects a Host fixture."""
 
+    _VALID_CONFIG_KEYS = frozenset({"host", "ssh_config"})
+
     def __init__(self, config: dict[str, Any] | None):
         self._config = config or {}
+        unknown = set(self._config) - self._VALID_CONFIG_KEYS
+        if unknown:
+            warnings.warn(
+                f"oxi-nixinfra: unrecognized config keys: {', '.join(sorted(unknown))}."
+                f" Valid keys: {', '.join(sorted(self._VALID_CONFIG_KEYS))}",
+                UserWarning,
+                stacklevel=2,
+            )
 
     @property
     def name(self) -> str:
