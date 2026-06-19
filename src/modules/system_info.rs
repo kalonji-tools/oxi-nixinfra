@@ -29,20 +29,19 @@ pub async fn nixos_version_impl(inner: &HostInner) -> Result<String, BackendErro
     let out = inner
         .execute("cat", &["/run/current-system/nixos-version"])
         .await?;
-    Ok(String::from_utf8_lossy(&out.stdout).trim().to_owned())
+    Ok(out.stdout().to_owned())
 }
 
 pub async fn system_profile_impl(inner: &HostInner) -> Result<String, BackendError> {
     let out = inner.execute("readlink", &["/run/current-system"]).await?;
-    Ok(String::from_utf8_lossy(&out.stdout).trim().to_owned())
+    Ok(out.stdout().to_owned())
 }
 
 pub async fn generation_count_impl(inner: &HostInner) -> Result<i32, BackendError> {
     let out = inner
         .execute("ls", &["-1", "/nix/var/nix/profiles/"])
         .await?;
-    let stdout = String::from_utf8_lossy(&out.stdout);
-    let count = stdout
+    let count = out
         .lines()
         .filter(|line| line.starts_with("system-") && line.ends_with("-link"))
         .count();
@@ -54,24 +53,11 @@ pub async fn boot_info_impl(inner: &HostInner) -> Result<BootInfo, BackendError>
     let out = inner
         .execute("cat", &["/run/current-system/boot.json"])
         .await?;
-    let json = String::from_utf8_lossy(&out.stdout);
-    let extract = |key: &str| -> String {
-        let needle = format!("\"{key}\":");
-        json.find(&needle)
-            .and_then(|pos| {
-                let after_colon = &json[pos + needle.len()..];
-                let quote_start = after_colon.find('"')?;
-                let value_start = quote_start + 1;
-                let value_end = after_colon[value_start..].find('"')?;
-                Some(after_colon[value_start..value_start + value_end].to_owned())
-            })
-            .unwrap_or_default()
-    };
-    let kernel_path = extract("kernel");
+    let kernel_path = out.json_field("kernel").unwrap_or_default();
     Ok(BootInfo {
         kernel_version: parse_kernel_version(&kernel_path),
-        arch: extract("system"),
-        label: extract("label"),
+        arch: out.json_field("system").unwrap_or_default(),
+        label: out.json_field("label").unwrap_or_default(),
     })
 }
 
@@ -79,11 +65,10 @@ pub async fn specialisations_impl(inner: &HostInner) -> Result<Vec<String>, Back
     let out = inner
         .execute("ls", &["-1", "/run/current-system/specialisation/"])
         .await?;
-    let stdout = String::from_utf8_lossy(&out.stdout);
-    Ok(stdout
+    Ok(out
         .lines()
         .filter(|l| !l.is_empty())
-        .map(std::borrow::ToOwned::to_owned)
+        .map(ToOwned::to_owned)
         .collect())
 }
 

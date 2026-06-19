@@ -7,94 +7,77 @@ use crate::host::HostInner;
 
 pub async fn exists_impl(inner: &HostInner, path: &str) -> Result<bool, BackendError> {
     let out = inner.execute("test", &["-e", path]).await?;
-    Ok(out.rc == 0)
+    Ok(out.rc() == 0)
 }
 
 pub async fn is_file_impl(inner: &HostInner, path: &str) -> Result<bool, BackendError> {
     let out = inner.execute("test", &["-f", path]).await?;
-    Ok(out.rc == 0)
+    Ok(out.rc() == 0)
 }
 
 pub async fn is_directory_impl(inner: &HostInner, path: &str) -> Result<bool, BackendError> {
     let out = inner.execute("test", &["-d", path]).await?;
-    Ok(out.rc == 0)
+    Ok(out.rc() == 0)
 }
 
 pub async fn is_symlink_impl(inner: &HostInner, path: &str) -> Result<bool, BackendError> {
     let out = inner.execute("test", &["-L", path]).await?;
-    Ok(out.rc == 0)
+    Ok(out.rc() == 0)
 }
 
 pub async fn is_executable_impl(inner: &HostInner, path: &str) -> Result<bool, BackendError> {
     let out = inner.execute("test", &["-x", path]).await?;
-    Ok(out.rc == 0)
+    Ok(out.rc() == 0)
 }
 
 pub async fn is_pipe_impl(inner: &HostInner, path: &str) -> Result<bool, BackendError> {
     let out = inner.execute("test", &["-p", path]).await?;
-    Ok(out.rc == 0)
+    Ok(out.rc() == 0)
 }
 
 pub async fn is_socket_impl(inner: &HostInner, path: &str) -> Result<bool, BackendError> {
     let out = inner.execute("test", &["-S", path]).await?;
-    Ok(out.rc == 0)
+    Ok(out.rc() == 0)
 }
 
 pub async fn linked_to_impl(inner: &HostInner, path: &str) -> Result<String, BackendError> {
     let out = inner.execute("realpath", &[path]).await?;
-    let stdout = String::from_utf8_lossy(&out.stdout);
-    Ok(stdout.trim().to_owned())
+    Ok(out.stdout().to_owned())
 }
 
 pub async fn user_impl(inner: &HostInner, path: &str) -> Result<String, BackendError> {
     let out = inner.execute("stat", &["-Lc", "%U", path]).await?;
-    let stdout = String::from_utf8_lossy(&out.stdout);
-    Ok(stdout.trim().to_owned())
+    Ok(out.stdout().to_owned())
 }
 
 pub async fn uid_impl(inner: &HostInner, path: &str) -> Result<i32, BackendError> {
     let out = inner.execute("stat", &["-Lc", "%u", path]).await?;
-    let stdout = String::from_utf8_lossy(&out.stdout);
-    stdout
-        .trim()
-        .parse::<i32>()
-        .map_err(|e| BackendError::Execution(format!("failed to parse uid: {e}")))
+    out.parse_int("uid")
 }
 
 pub async fn group_impl(inner: &HostInner, path: &str) -> Result<String, BackendError> {
     let out = inner.execute("stat", &["-Lc", "%G", path]).await?;
-    let stdout = String::from_utf8_lossy(&out.stdout);
-    Ok(stdout.trim().to_owned())
+    Ok(out.stdout().to_owned())
 }
 
 pub async fn gid_impl(inner: &HostInner, path: &str) -> Result<i32, BackendError> {
     let out = inner.execute("stat", &["-Lc", "%g", path]).await?;
-    let stdout = String::from_utf8_lossy(&out.stdout);
-    stdout
-        .trim()
-        .parse::<i32>()
-        .map_err(|e| BackendError::Execution(format!("failed to parse gid: {e}")))
+    out.parse_int("gid")
 }
 
 pub async fn mode_impl(inner: &HostInner, path: &str) -> Result<i32, BackendError> {
     let out = inner.execute("stat", &["-Lc", "%a", path]).await?;
-    let stdout = String::from_utf8_lossy(&out.stdout);
-    i32::from_str_radix(stdout.trim(), 8)
-        .map_err(|e| BackendError::Execution(format!("failed to parse mode: {e}")))
+    out.parse_int_radix("mode", 8)
 }
 
 pub async fn size_impl(inner: &HostInner, path: &str) -> Result<u64, BackendError> {
     let out = inner.execute("stat", &["-Lc", "%s", path]).await?;
-    let stdout = String::from_utf8_lossy(&out.stdout);
-    stdout
-        .trim()
-        .parse::<u64>()
-        .map_err(|e| BackendError::Execution(format!("failed to parse size: {e}")))
+    out.parse_int("size")
 }
 
 pub async fn content_impl(inner: &HostInner, path: &str) -> Result<String, BackendError> {
     let out = inner.execute("cat", &["--", path]).await?;
-    Ok(String::from_utf8_lossy(&out.stdout).into_owned())
+    Ok(out.stdout_raw())
 }
 
 pub async fn contains_impl(
@@ -103,13 +86,12 @@ pub async fn contains_impl(
     pattern: &str,
 ) -> Result<bool, BackendError> {
     let out = inner.execute("grep", &["-qs", "--", pattern, path]).await?;
-    Ok(out.rc == 0)
+    Ok(out.rc() == 0)
 }
 
 pub async fn is_nix_managed_impl(inner: &HostInner, path: &str) -> Result<bool, BackendError> {
     let out = inner.execute("readlink", &["-f", path]).await?;
-    let stdout = String::from_utf8_lossy(&out.stdout);
-    Ok(out.rc == 0 && stdout.trim().starts_with("/nix/store/"))
+    Ok(out.rc() == 0 && out.stdout().starts_with("/nix/store/"))
 }
 
 pub async fn file_store_path_impl(
@@ -117,9 +99,8 @@ pub async fn file_store_path_impl(
     path: &str,
 ) -> Result<Option<String>, BackendError> {
     let out = inner.execute("readlink", &["-f", path]).await?;
-    let stdout = String::from_utf8_lossy(&out.stdout);
-    let resolved = stdout.trim();
-    if out.rc == 0 && resolved.starts_with("/nix/store/") {
+    let resolved = out.stdout();
+    if out.rc() == 0 && resolved.starts_with("/nix/store/") {
         Ok(Some(resolved.to_owned()))
     } else {
         Ok(None)
@@ -128,28 +109,17 @@ pub async fn file_store_path_impl(
 
 pub async fn md5sum_impl(inner: &HostInner, path: &str) -> Result<String, BackendError> {
     let out = inner.execute("md5sum", &[path]).await?;
-    let stdout = String::from_utf8_lossy(&out.stdout);
-    stdout
-        .split_whitespace()
-        .next()
-        .map(std::borrow::ToOwned::to_owned)
-        .ok_or_else(|| BackendError::Execution(format!("failed to parse md5sum for: {path}")))
+    out.first_field("md5sum").map(ToOwned::to_owned)
 }
 
 pub async fn sha256sum_impl(inner: &HostInner, path: &str) -> Result<String, BackendError> {
     let out = inner.execute("sha256sum", &[path]).await?;
-    let stdout = String::from_utf8_lossy(&out.stdout);
-    stdout
-        .split_whitespace()
-        .next()
-        .map(std::borrow::ToOwned::to_owned)
-        .ok_or_else(|| BackendError::Execution(format!("failed to parse sha256sum for: {path}")))
+    out.first_field("sha256sum").map(ToOwned::to_owned)
 }
 
 pub async fn listdir_impl(inner: &HostInner, path: &str) -> Result<Vec<String>, BackendError> {
     let out = inner.execute("ls", &["-1", "-q", "--", path]).await?;
-    let stdout = String::from_utf8_lossy(&out.stdout);
-    Ok(stdout.lines().map(std::borrow::ToOwned::to_owned).collect())
+    Ok(out.lines().map(ToOwned::to_owned).collect())
 }
 
 // ---------------------------------------------------------------------------

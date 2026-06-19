@@ -12,7 +12,7 @@ use crate::host::HostInner;
 /// does not work on remote hosts via SSH.
 pub async fn exists_impl(inner: &HostInner, path: &str) -> Result<bool, BackendError> {
     let out = inner.execute("nixos-option", &[path]).await?;
-    Ok(out.rc == 0)
+    Ok(out.rc() == 0)
 }
 
 /// Get the value of a NixOS option at the given path.
@@ -22,13 +22,12 @@ pub async fn exists_impl(inner: &HostInner, path: &str) -> Result<bool, BackendE
 /// does not work on remote hosts via SSH.
 pub async fn value_impl(inner: &HostInner, path: &str) -> Result<String, BackendError> {
     let out = inner.execute("nixos-option", &[path]).await?;
-    if out.rc == 0 {
-        let stdout = String::from_utf8_lossy(&out.stdout);
-        for (i, line) in stdout.lines().enumerate() {
+    if out.rc() == 0 {
+        let lines: Vec<&str> = out.lines().collect();
+        for (i, line) in lines.iter().enumerate() {
             if line.starts_with("Value:") {
-                return stdout
-                    .lines()
-                    .skip(i + 1)
+                return lines[i + 1..]
+                    .iter()
                     .find(|l| !l.trim().is_empty())
                     .map(|l| l.trim().to_owned())
                     .ok_or_else(|| {
@@ -40,7 +39,7 @@ pub async fn value_impl(inner: &HostInner, path: &str) -> Result<String, Backend
     Err(BackendError::Execution(format!(
         "nixos-option failed for '{}': {}",
         path,
-        String::from_utf8_lossy(&out.stderr)
+        out.stderr_lossy()
     )))
 }
 
