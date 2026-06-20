@@ -85,7 +85,7 @@ fn cache() -> &'static Mutex<HashMap<String, Arc<HostInner>>> {
     HOST_CACHE.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
-fn get_or_create_host(conn_str: &str, _ssh_config: Option<&str>) -> PyResult<Arc<HostInner>> {
+fn get_or_create_host(conn_str: &str, ssh_config: Option<&str>) -> PyResult<Arc<HostInner>> {
     let mut map = cache().lock().unwrap();
     if let Some(inner) = map.get(conn_str) {
         return Ok(Arc::clone(inner));
@@ -101,7 +101,12 @@ fn get_or_create_host(conn_str: &str, _ssh_config: Option<&str>) -> PyResult<Arc
         Scheme::Local => Box::new(LocalBackend),
         Scheme::Ssh { host, user, port } => {
             let b = runtime
-                .block_on(SshBackend::connect(&host, user.as_deref(), port))
+                .block_on(SshBackend::connect(
+                    &host,
+                    user.as_deref(),
+                    port,
+                    ssh_config,
+                ))
                 .map_err(backend_err_to_py)?;
             Box::new(b)
         }
