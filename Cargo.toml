@@ -8,8 +8,8 @@ name = "_oxi_nixinfra"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-pyo3 = { version = "0.23", features = ["multiple-pymethods"] }
-pyo3-async-runtimes = { version = "0.23", features = ["tokio-runtime"] }
+pyo3 = { version = "0.29", features = ["multiple-pymethods"] }
+pyo3-async-runtimes = { version = "0.29", features = ["tokio-runtime"] }
 tokio = { version = "1.36", features = ["rt-multi-thread", "process"] }
 openssh = { version = "0.11", features = ["process-mux"] }
 async-trait = "0.1"
@@ -17,7 +17,7 @@ serde_json = "1"
 oxi-nixinfra-macros = { path = "oxi-nixinfra-macros" }
 
 [dev-dependencies]
-pyo3 = { version = "0.23", features = ["auto-initialize"] }
+pyo3 = { version = "0.29", features = ["auto-initialize"] }
 
 [lints.rust]
 unsafe_code = "forbid"
