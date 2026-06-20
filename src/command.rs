@@ -9,7 +9,7 @@ pub struct RawOutput {
 }
 
 /// Result of a command execution, exposed to Python.
-#[pyclass(frozen, get_all)]
+#[pyclass(frozen, get_all, from_py_object)]
 #[derive(Clone)]
 pub struct CommandResult {
     pub rc: i32,
@@ -43,6 +43,7 @@ impl CommandResult {
         }
     }
 
+    #[cfg(test)]
     pub fn from_raw(raw: RawOutput, command: String) -> Self {
         Self {
             rc: raw.rc,
