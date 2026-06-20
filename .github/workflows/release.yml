@@ -73,7 +73,9 @@ jobs:
         run: sed -i "0,/^version = .*/s//version = \"${{ steps.version.outputs.next }}\"/" Cargo.toml
 
       - name: Sync flake.nix version
-        run: sed -i "s/version = \"[0-9]*\.[0-9]*\.[0-9]*\";  # oxi-nixinfra/version = \"${{ steps.version.outputs.next }}\";  # oxi-nixinfra/" flake.nix
+        run: |
+          VERSION="${{ steps.version.outputs.next }}"
+          sed -i 's/version = "[0-9]*\.[0-9]*\.[0-9]*";  # oxi-nixinfra/version = "'"$VERSION"'";  # oxi-nixinfra/' flake.nix
 
       - name: Update Cargo.lock
         run: cargo update --workspace
