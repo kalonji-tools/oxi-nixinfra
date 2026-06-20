@@ -13,6 +13,7 @@ impl SshBackend {
         host: &str,
         user: Option<&str>,
         port: Option<u16>,
+        ssh_config: Option<&str>,
     ) -> Result<Self, BackendError> {
         let mut builder = openssh::SessionBuilder::default();
         if let Some(u) = user {
@@ -20,6 +21,9 @@ impl SshBackend {
         }
         if let Some(p) = port {
             builder.port(p);
+        }
+        if let Some(config) = ssh_config {
+            builder.config_file(config);
         }
         builder.known_hosts_check(openssh::KnownHosts::Accept);
         let session = builder
