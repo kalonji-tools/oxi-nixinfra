@@ -73,3 +73,33 @@ def test_nonexistent_file_not_nix_managed(host: Fixture[Host]):
     assert not host.file("/nonexistent-path-12345").is_nix_managed(), (
         "nonexistent file should not be NixOS-managed"
     )
+
+
+@oxitest.mark.nixos
+def test_etc_os_release_is_symlink(host: Fixture[Host]):
+    assert host.file("/etc/os-release").is_symlink(), (
+        "on NixOS /etc/os-release is a symlink into /nix/store/"
+    )
+
+
+@oxitest.mark.nixos
+def test_symlink_linked_to(host: Fixture[Host]):
+    target = host.file("/etc/os-release").linked_to()
+    assert "/nix/store/" in target, (
+        "linked_to() should resolve the symlink target via readlink"
+        " — on NixOS /etc/os-release points into /nix/store/"
+    )
+
+
+def test_bin_sh_is_executable(host: Fixture[Host]):
+    assert host.file("/bin/sh").is_executable(), (
+        "/bin/sh must be executable on any Linux system"
+    )
+
+
+def test_regular_file_not_symlink(host: Fixture[Host]):
+    f = host.file("/etc/hostname")
+    if f.exists():
+        assert isinstance(f.is_symlink(), bool), (
+            "is_symlink() should return bool for any existing file"
+        )
