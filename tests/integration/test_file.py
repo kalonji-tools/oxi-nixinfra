@@ -138,3 +138,34 @@ def test_file_contains_no_match(host: Fixture[Host]):
     assert not host.file("/etc/os-release").contains("NONEXISTENT_KEY_12345"), (
         "contains() should return False for strings not in the file"
     )
+
+
+def test_file_md5sum(host: Fixture[Host]):
+    md5 = host.file("/etc/os-release").md5sum()
+    assert len(md5) == 32, (
+        "md5sum() should return a 32-character hex string"
+        " — check 'md5sum' output parsing (first field)"
+    )
+    assert all(c in "0123456789abcdef" for c in md5), (
+        "md5sum() should contain only hex characters"
+    )
+
+
+def test_file_sha256sum(host: Fixture[Host]):
+    sha = host.file("/etc/os-release").sha256sum()
+    assert len(sha) == 64, (
+        "sha256sum() should return a 64-character hex string"
+        " — check 'sha256sum' output parsing (first field)"
+    )
+    assert all(c in "0123456789abcdef" for c in sha), (
+        "sha256sum() should contain only hex characters"
+    )
+
+
+def test_file_listdir(host: Fixture[Host]):
+    entries = host.file("/etc").listdir()
+    assert isinstance(entries, list), "listdir() should return a list"
+    assert len(entries) > 0, "/etc should contain files — check 'ls' output parsing"
+    assert "os-release" in entries, (
+        "/etc/os-release exists, so 'os-release' should appear in listdir()"
+    )
