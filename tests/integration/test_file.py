@@ -103,3 +103,38 @@ def test_regular_file_not_symlink(host: Fixture[Host]):
         assert isinstance(f.is_symlink(), bool), (
             "is_symlink() should return bool for any existing file"
         )
+
+
+def test_file_uid_root(host: Fixture[Host]):
+    uid = host.file("/etc/os-release").uid()
+    assert uid == 0, "root-owned files should have uid 0 — check 'stat -Lc %u' parsing"
+
+
+def test_file_gid_root(host: Fixture[Host]):
+    gid = host.file("/etc/os-release").gid()
+    assert gid == 0, "root-owned files should have gid 0 — check 'stat -Lc %g' parsing"
+
+
+def test_file_group_root(host: Fixture[Host]):
+    group = host.file("/etc/os-release").group()
+    assert group == "root", (
+        "root-owned files should have group 'root' — check 'stat -Lc %G' parsing"
+    )
+
+
+def test_file_size_positive(host: Fixture[Host]):
+    size = host.file("/etc/os-release").size()
+    assert size > 0, "/etc/os-release should be non-empty — check 'stat -Lc %s' parsing"
+    assert isinstance(size, int), "size() should return int"
+
+
+def test_file_contains_match(host: Fixture[Host]):
+    assert host.file("/etc/os-release").contains("ID="), (
+        "/etc/os-release must contain an ID= line — check grep exit code handling"
+    )
+
+
+def test_file_contains_no_match(host: Fixture[Host]):
+    assert not host.file("/etc/os-release").contains("NONEXISTENT_KEY_12345"), (
+        "contains() should return False for strings not in the file"
+    )
