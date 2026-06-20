@@ -64,6 +64,9 @@ jobs:
       - name: Update Cargo.toml version
         run: sed -i "0,/^version = .*/s//version = \"${{ steps.version.outputs.next }}\"/" Cargo.toml
 
+      - name: Sync flake.nix version
+        run: sed -i "s/version = \"[0-9]*\.[0-9]*\.[0-9]*\";  # oxi-nixinfra/version = \"${{ steps.version.outputs.next }}\";  # oxi-nixinfra/" flake.nix
+
       - name: Update Cargo.lock
         run: cargo update --workspace
 
@@ -72,7 +75,7 @@ jobs:
           VERSION="${{ steps.version.outputs.next }}"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add CHANGELOG.md Cargo.toml Cargo.lock
+          git add CHANGELOG.md Cargo.toml Cargo.lock flake.nix
           git commit -m "release: v${VERSION}"
           git tag -a "v${VERSION}" -m "v${VERSION}"
           git push origin main --follow-tags
