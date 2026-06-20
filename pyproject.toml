@@ -16,11 +16,11 @@ python-source = "python"
 module-name = "oxi_nixinfra._oxi_nixinfra"
 
 [tool.oxitest]
-plugins = ["oxi_nixinfra._plugin"]
+plugins = ["oxi_nixinfra.plugin"]
 markers = ["nixos: test requires NixOS"]
 strict = "abort"
 
-[tool.oxitest.plugin_settings.oxi_nixinfra._plugin]
+[tool.oxitest.plugin_settings.oxi_nixinfra.plugin]
 
 [tool.ruff]
 target-version = "py312"
@@ -40,7 +40,7 @@ skip = "target,.venv,Cargo.lock,.git,graphify-out,*.min.js,*/docs/site/*,*/docs/
 
 [dependency-groups]
 build = ["maturin>=1.0,<2.0"]
-test = [{ include-group = "build" }, "oxitest>=1.0.0b1"]
+test = [{ include-group = "build" }, "oxitest>=1.0.0b2"]
 code-quality = ["ruff>=0.11", "codespell>=2"]
 docs = [
     "mkdocs-material>=9",
