@@ -44,12 +44,7 @@ just
 
 **2. Create issues.** Once an idea survives grilling and is deemed worth implementing, create GitHub issues. Every issue MUST state the "why" — why is this change needed? What problem does it solve? Organize into milestones if the work spans multiple issues. Every issue MUST be triaged. Apply one **category label** (`bug` or `enhancement`) and one **component label** (`rust`, `python`, or `infra`) to each issue.
 
-**3. Triage issues.** Every issue gets a **state label** reflecting its triage status. Apply exactly one:
-- `needs-triage` — maintainer needs to evaluate
-- `needs-info` — waiting on reporter for more information
-- `ready-for-agent` — fully specified, ready for an AFK agent
-- `ready-for-human` — needs human implementation
-- `wontfix` — will not be actioned
+**3. Triage issues.** Every issue gets a **state label** reflecting its triage status. See `docs/agents/triage-labels.md` for the label vocabulary.
 
 **4. Spec every issue.** By the time a PR is created, every issue in that PR MUST have a design spec. If no issue exists yet for the work being specced, create one first — every spec needs a home issue. Specs can be written when the issue is picked up or ahead of time — but never skipped. Use the `superpowers:brainstorming` skill for spec design. Post each issue's spec section as a comment on that issue. When issues share a grouped spec, post only the section relevant to each issue — not the entire spec on every issue.
 
@@ -77,7 +72,7 @@ just
 |-------|-----------|-------|--------|
 | Grill new ideas | Always | `grill-with-docs` | — |
 | Create issues | Always | — | category (`bug`/`enhancement`) + component (`rust`/`python`/`infra`) |
-| Triage issues | Always | `triage` | state (`needs-triage`/`needs-info`/`ready-for-agent`/`ready-for-human`/`wontfix`) |
+| Triage issues | Always | `triage` | See `docs/agents/triage-labels.md` |
 | Design spec | Before PR | `superpowers:brainstorming` | — |
 | Draft PR | Before coding | — | — |
 | Implementation plan | Before coding | `superpowers:writing-plans` | — |
@@ -135,3 +130,17 @@ Config resolution: `OXITEST_HOST` env var > pyproject.toml > `"local://"` defaul
 - **Python integration tests** (`just test`): Run real commands on local machine. Tests marked `@oxitest.mark.nixos` auto-skip on non-NixOS.
 - **CI**: GitHub Actions with path filtering (`dorny/paths-filter`). Two parallel jobs: `check` (static analysis via `just check`) and `test` (`just test-rust`, `just build`, `just test`). Docs-only PRs skip both. Uses `dtolnay/rust-toolchain`, `astral-sh/setup-uv`, `Swatinem/rust-cache` — no devenv in CI. NixOS-specific tests auto-skip on Ubuntu runners.
 - **Every `assert` MUST have a message.** oxitest runs with `strict = "abort"` — bare asserts are violations. The message explains *why* the assertion matters — oxitest already shows the where, when, and what (expected vs actual). The message gives the developer the *why* so they can debug the *how*. Bad: `"expected 4 methods, got 3"` (oxitest already shows that). Good: `"FixtureProvider protocol added a method — HostProvider needs to implement it to avoid runtime TypeError"`.
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues on `kalonji-tools/oxi-nixinfra`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default label vocabulary (needs-triage, needs-info, ready-for-agent, ready-for-human, wontfix). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context layout — `CONTEXT.md` + `docs/adr/` at root. See `docs/agents/domain.md`.
