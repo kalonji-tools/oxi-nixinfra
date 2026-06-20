@@ -8,7 +8,6 @@ otherwise surface as a runtime TypeError deep inside a test run.
 from __future__ import annotations
 
 import inspect
-import warnings
 
 
 def _protocol_methods(protocol_cls: type) -> dict[str, int]:
@@ -31,6 +30,17 @@ def _protocol_methods(protocol_cls: type) -> dict[str, int]:
             params = [p for p in sig.parameters.values() if p.name != "self"]
             methods[name] = len(params)
     return methods
+
+
+def _get_plugin_classes():
+    """Import and return (HostProvider, NixosWrapper) by invoking the plugin."""
+    from oxi_nixinfra._config import NixConfig
+    from oxi_nixinfra.plugin import oxitest_plugin
+
+    plugin = oxitest_plugin(config=NixConfig())
+    host_provider = plugin.fixture_providers[0]
+    nixos_wrapper = plugin.execution_wrappers[0]
+    return type(host_provider), type(nixos_wrapper)
 
 
 def test_helper_extracts_fixture_provider_methods():
@@ -58,8 +68,9 @@ def test_helper_extracts_fixture_provider_methods():
 
 
 def test_host_provider_conforms_to_fixture_provider():
-    from oxi_nixinfra._plugin import HostProvider
     from oxitest.plugin import FixtureProvider
+
+    HostProvider, _ = _get_plugin_classes()
 
     expected = _protocol_methods(FixtureProvider)
     for method_name, expected_arity in expected.items():
@@ -81,8 +92,9 @@ def test_host_provider_conforms_to_fixture_provider():
 
 
 def test_nixos_wrapper_conforms_to_execution_wrapper():
-    from oxi_nixinfra._plugin import NixosWrapper
     from oxitest.plugin import ExecutionWrapper
+
+    _, NixosWrapper = _get_plugin_classes()
 
     expected = _protocol_methods(ExecutionWrapper)
     for method_name, expected_arity in expected.items():
@@ -104,10 +116,11 @@ def test_nixos_wrapper_conforms_to_execution_wrapper():
 
 
 def test_oxitest_plugin_returns_valid_plugin():
-    from oxi_nixinfra._plugin import oxitest_plugin
+    from oxi_nixinfra._config import NixConfig
+    from oxi_nixinfra.plugin import oxitest_plugin
     from oxitest.plugin import ExecutionWrapper, FixtureProvider, Plugin
 
-    result = oxitest_plugin()
+    result = oxitest_plugin(config=NixConfig())
 
     assert isinstance(result, Plugin), (
         "oxitest_plugin() must return Plugin — oxitest's loader will reject it"
@@ -132,28 +145,23 @@ def test_oxitest_plugin_returns_valid_plugin():
         )
 
 
-def test_host_provider_warns_on_unknown_config_keys():
-    """HostProvider should warn when config contains unrecognized keys."""
-    from oxi_nixinfra._plugin import HostProvider
+def test_cli_extension_is_discoverable():
+    """Phase 1: oxitest can discover CLI extension without loading Rust."""
+    from oxi_nixinfra.plugin import oxitest_cli_extension
 
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always")
-        HostProvider({"host": "local://", "typo_key": "value"})
-
-    assert len(w) == 1, (
-        "HostProvider should emit exactly one warning for unrecognized config keys"
-    )
-    assert "typo_key" in str(w[0].message), (
-        "warning message should name the unrecognized key"
+    assert oxitest_cli_extension.prefix == "nix", (
+        "CLI prefix must be 'nix' — flags will be --nix-host, --nix-ssh-config"
     )
 
 
-def test_host_provider_no_warning_on_valid_config():
-    """HostProvider should not warn when all config keys are valid."""
-    from oxi_nixinfra._plugin import HostProvider
+def test_config_defaults():
+    """NixConfig defaults match expected values."""
+    from oxi_nixinfra._config import NixConfig
 
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always")
-        HostProvider({"host": "local://", "ssh_config": "/path"})
-
-    assert len(w) == 0, "HostProvider should not warn when all keys are valid"
+    config = NixConfig()
+    assert config.host == "local://", (
+        "default host must be 'local://' for local-only testing"
+    )
+    assert config.ssh_config is None, (
+        "default ssh_config must be None — only set when targeting remote hosts"
+    )
