@@ -14,9 +14,9 @@
       # Pre-built oxitest wheel from PyPI (pinned version + hash)
       # name preserves the wheel filename — pip requires it for version/platform parsing
       oxitest-wheel = pkgs.fetchurl {
-        name = "oxitest-1.0.0b1-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl";
-        url = "https://files.pythonhosted.org/packages/9e/c6/3375076d99890da48c702d513a37ab592512c5e098eee41bbbf07493075a/oxitest-1.0.0b1-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl";
-        sha256 = "1sfqaa1nb52wmlqwg66h1jxr1h2613s2hq7vc2qm1dg74waidaaf";
+        name = "oxitest-1.0.0b2-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl";
+        url = "https://files.pythonhosted.org/packages/8b/5e/4a308f7be4e39d1a24f5803160d075fbc4a8546b3cedba3ecf2a52ff75ae/oxitest-1.0.0b2-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl";
+        sha256 = "0hpj81awiksklhk4ki7am5ln90nbjnn9vqsc4sw83rvjlnfr69wa";
       };
 
       # Build just the maturin wheel (no network needed)
