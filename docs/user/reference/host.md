@@ -22,6 +22,27 @@ def test_example(host: Fixture[Host]):
 | `user(name)` | `User` | User inspector |
 | `nix_package(name)` | `NixPackage` | Nix package inspector |
 | `system_info()` | `SystemInfo` | OS information |
+| `environment(name)` | `Environment` | Environment variable inspector |
+| `mountpoint(path)` | `MountPoint` | Mount point inspector |
+| `process()` | `Process` | Running process inspector |
+| `socket(spec)` | `Socket` | Network socket inspector |
+| `sysctl(key)` | `Sysctl` | Kernel parameter inspector |
+
+## Async methods
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `run(*args)` | `CommandResult` | Execute a command |
+| `service(name)` | `Service` | Systemd service inspector |
+| `file(path)` | `File` | File inspector |
+| `user(name)` | `User` | User inspector |
+| `nix_package(name)` | `NixPackage` | Nix package inspector |
+| `system_info()` | `SystemInfo` | OS information |
+| `environment(name)` | `Environment` | Environment variable inspector |
+| `mountpoint(path)` | `MountPoint` | Mount point inspector |
+| `process()` | `Process` | Running process inspector |
+| `socket(spec)` | `Socket` | Network socket inspector |
+| `sysctl(key)` | `Sysctl` | Kernel parameter inspector |
 
 ## Async namespace
 

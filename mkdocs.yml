@@ -76,6 +76,11 @@ nav:
       - User: reference/modules/user.md
       - NixPackage: reference/modules/nix-package.md
       - SystemInfo: reference/modules/system-info.md
+      - Environment: reference/modules/environment.md
+      - MountPoint: reference/modules/mountpoint.md
+      - Process: reference/modules/process.md
+      - Socket: reference/modules/socket.md
+      - Sysctl: reference/modules/sysctl.md
   - Explanation:
     - Why NixOS only: explanation/why-nixos-only.md
     - Architecture: explanation/architecture.md

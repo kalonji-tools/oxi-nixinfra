@@ -51,8 +51,12 @@ oxitest tests/
 | `host.file(path)` | File, directory, symlink inspection |
 | `host.user(name)` | User account inspection |
 | `host.nix_package(name)` | Nix store package queries |
-| `host.nix_option(path)` | Evaluated NixOS option queries |
 | `host.system_info()` | OS release information |
+| `host.environment(name)` | Environment variable inspection |
+| `host.mountpoint(path)` | Mount point inspection |
+| `host.process()` | Running process inspection |
+| `host.socket(spec)` | Network socket inspection |
+| `host.sysctl(key)` | Kernel parameter inspection |
 | `host.run(*args)` | Raw command execution |
 
 All modules have async counterparts via `host.a`.
