@@ -74,6 +74,7 @@ impl CommandOutput {
     }
 
     /// Extract a top-level JSON string field from stdout.
+    #[cfg(test)]
     pub fn json_field(&self, key: &str) -> Result<String, BackendError> {
         let parsed = self.parse_json()?;
         parsed

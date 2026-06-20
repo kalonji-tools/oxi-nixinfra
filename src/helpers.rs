@@ -37,7 +37,7 @@ mod tests {
     #[test]
     fn test_connection_error_maps_to_py_connection_error() {
         let err = backend_err_to_py(BackendError::Connection("host unreachable".into()));
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             assert!(err.is_instance_of::<PyConnectionError>(py));
             assert_eq!(err.value(py).to_string(), "host unreachable");
         });
@@ -46,7 +46,7 @@ mod tests {
     #[test]
     fn test_execution_error_maps_to_py_os_error() {
         let err = backend_err_to_py(BackendError::Execution("command failed".into()));
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             assert!(err.is_instance_of::<PyOSError>(py));
             assert_eq!(err.value(py).to_string(), "command failed");
         });
