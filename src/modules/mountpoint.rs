@@ -22,7 +22,7 @@ async fn findmnt_field(inner: &HostInner, path: &str, field: &str) -> Result<Str
             out.stderr_lossy()
         )));
     }
-    out.json_field(field)
+    out.json_array_field("filesystems", field)
         .map_err(|_| BackendError::Execution(format!("could not parse {field} for mount: {path}")))
 }
 

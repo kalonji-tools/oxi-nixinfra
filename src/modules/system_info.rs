@@ -53,11 +53,12 @@ pub async fn boot_info_impl(inner: &HostInner) -> Result<BootInfo, BackendError>
     let out = inner
         .execute("cat", &["/run/current-system/boot.json"])
         .await?;
-    let kernel_path = out.json_field("kernel").unwrap_or_default();
+    let spec = "org.nixos.bootspec.v1";
+    let kernel_path = out.json_nested_field(&[spec, "kernel"]).unwrap_or_default();
     Ok(BootInfo {
         kernel_version: parse_kernel_version(&kernel_path),
-        arch: out.json_field("system").unwrap_or_default(),
-        label: out.json_field("label").unwrap_or_default(),
+        arch: out.json_nested_field(&[spec, "system"]).unwrap_or_default(),
+        label: out.json_nested_field(&[spec, "label"]).unwrap_or_default(),
     })
 }
 

@@ -67,22 +67,57 @@ impl CommandOutput {
             .map_err(|e| BackendError::Execution(format!("failed to parse {field}: {e}")))
     }
 
-    /// Extract a JSON string field from stdout. Handles both compact and spaced formats.
+    /// Parse stdout as JSON.
+    fn parse_json(&self) -> Result<serde_json::Value, BackendError> {
+        serde_json::from_str(self.stdout())
+            .map_err(|e| BackendError::Execution(format!("failed to parse JSON: {e}")))
+    }
+
+    /// Extract a top-level JSON string field from stdout.
     pub fn json_field(&self, key: &str) -> Result<String, BackendError> {
-        let json = self.stdout();
-        let needle = format!("\"{key}\":");
-        let pos = json.find(&needle).ok_or_else(|| {
-            BackendError::Execution(format!("failed to parse {key}: key not found"))
-        })?;
-        let after_colon = &json[pos + needle.len()..];
-        let quote_start = after_colon.find('"').ok_or_else(|| {
-            BackendError::Execution(format!("failed to parse {key}: no opening quote"))
-        })?;
-        let value_start = quote_start + 1;
-        let value_end = after_colon[value_start..].find('"').ok_or_else(|| {
-            BackendError::Execution(format!("failed to parse {key}: no closing quote"))
-        })?;
-        Ok(after_colon[value_start..value_start + value_end].to_owned())
+        let parsed = self.parse_json()?;
+        parsed
+            .get(key)
+            .and_then(serde_json::Value::as_str)
+            .map(str::to_owned)
+            .ok_or_else(|| BackendError::Execution(format!("failed to parse {key}: key not found")))
+    }
+
+    /// Extract a string field from nested JSON by traversing a path of keys.
+    /// For arrays, use `json_array_field` instead.
+    pub fn json_nested_field(&self, path: &[&str]) -> Result<String, BackendError> {
+        let mut value = self.parse_json()?;
+        for &key in path {
+            value = value.get(key).cloned().ok_or_else(|| {
+                BackendError::Execution(format!(
+                    "failed to parse {key}: key not found in path {}",
+                    path.join(".")
+                ))
+            })?;
+        }
+        value.as_str().map(str::to_owned).ok_or_else(|| {
+            BackendError::Execution(format!(
+                "failed to parse {}: value is not a string",
+                path.join(".")
+            ))
+        })
+    }
+
+    /// Extract a string field from the first element of a JSON array at `array_key`.
+    pub fn json_array_field(&self, array_key: &str, field: &str) -> Result<String, BackendError> {
+        let parsed = self.parse_json()?;
+        parsed
+            .get(array_key)
+            .and_then(|v| v.as_array())
+            .and_then(|arr| arr.first())
+            .and_then(|obj| obj.get(field))
+            .and_then(serde_json::Value::as_str)
+            .map(str::to_owned)
+            .ok_or_else(|| {
+                BackendError::Execution(format!(
+                    "failed to parse {field}: not found in {array_key}[0]"
+                ))
+            })
     }
 
     /// First whitespace-delimited field from trimmed stdout.
@@ -226,6 +261,28 @@ mod tests {
         assert!(
             err.to_string().contains("missing"),
             "error should mention the key name"
+        );
+    }
+
+    #[test]
+    fn test_json_field_nested_object() {
+        let out = make_output(br#"{"outer":{"inner":"value"},"target":"found"}"#);
+        assert_eq!(out.json_field("target").unwrap(), "found");
+    }
+
+    #[test]
+    fn test_json_field_key_as_substring() {
+        let out = make_output(br#"{"fstype_extra":"btrfs","fstype":"ext4"}"#);
+        assert_eq!(out.json_field("fstype").unwrap(), "ext4");
+    }
+
+    #[test]
+    fn test_json_field_invalid_json() {
+        let out = make_output(b"not json at all");
+        let err = out.json_field("key").unwrap_err();
+        assert!(
+            err.to_string().contains("failed to parse JSON"),
+            "should report JSON parse error"
         );
     }
 
