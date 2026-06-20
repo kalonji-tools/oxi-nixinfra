@@ -1,6 +1,14 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+## [0.5.0] - 2026-06-20
+
+### Features
+
+
+- Add typed plugin config with CliExtension (#138)
+- Migrate plugin to typed config with two-phase loading (#138)
+
 ## [0.4.0] - 2026-06-20
 
 ### Bug Fixes
