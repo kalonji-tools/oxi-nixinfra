@@ -1,6 +1,25 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+## [0.4.0] - 2026-06-20
+
+### Bug Fixes
+
+
+- Sync flake.nix version with Cargo.toml (#110)
+- Renumber duplicate ADR 0001 to 0002 (#112)
+- Escape sed quotes in flake.nix version sync (#130)
+
+### Features
+
+
+- Add CommandOutput type with parse helpers (#96)
+- Wire HostInner::execute to return CommandOutput and migrate all modules (#96)
+- Cache BootInfo via OnceLock to eliminate triple command execution (#97)
+- Add type annotations to plugin methods (#117)
+- Warn on unrecognized plugin config keys (#117)
+- Implement SSH config file support (#115)
+
 ## [0.3.0] - 2026-06-19
 
 ### Features
