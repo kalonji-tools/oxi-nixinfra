@@ -2,24 +2,15 @@
 
 from __future__ import annotations
 
-import functools
 import os
 import warnings
 from collections.abc import Callable
-from pathlib import Path
 from typing import Any
 
+from oxitest._bridge.result import SkippedResult
 from oxitest.plugin import Plugin
 
-
-@functools.cache
-def is_nixos() -> bool:
-    """Detect NixOS by reading /etc/os-release."""
-    try:
-        with Path("/etc/os-release").open() as f:
-            return any(line.strip() == "ID=nixos" for line in f)
-    except FileNotFoundError:
-        return False
+from oxi_nixinfra import Host, is_nixos
 
 
 class NixosWrapper:
@@ -31,8 +22,6 @@ class NixosWrapper:
 
     def wrap(self, test_fn: Callable[[], Any], marker_args: dict[str, Any]) -> Any:
         if not is_nixos():
-            from oxitest._bridge.result import SkippedResult
-
             return SkippedResult(message="requires NixOS")
         return test_fn()
 
@@ -59,13 +48,9 @@ class HostProvider:
 
     @property
     def fixture_type(self) -> type:
-        from oxi_nixinfra import Host
-
         return Host
 
     def create(self, ctx: object) -> object:
-        from oxi_nixinfra import Host
-
         host_str = (
             os.environ.get("OXITEST_HOST") or self._config.get("host") or "local://"
         )
