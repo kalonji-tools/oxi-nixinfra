@@ -1,31 +1,34 @@
 {
-  description = "oxi-nixinfra CI checks";
+  description = "oxi-nixinfra – NixOS infrastructure testing library (oxitest plugin)";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    oxitest.url = "github:kalonji-tools/oxitest";
   };
 
-  outputs = { self, nixpkgs }:
+  outputs =
+    {
+      self,
+      nixpkgs,
+      oxitest,
+    }:
     let
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
       python = pkgs.python312;
+      version = (builtins.fromTOML (builtins.readFile ./Cargo.toml)).package.version;
+      oxitest-pkg = oxitest.packages.${system}.default;
 
-      # Pre-built oxitest wheel from PyPI (pinned version + hash)
-      # name preserves the wheel filename — pip requires it for version/platform parsing
-      oxitest-wheel = pkgs.fetchurl {
-        name = "oxitest-1.0.0b2-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl";
-        url = "https://files.pythonhosted.org/packages/8b/5e/4a308f7be4e39d1a24f5803160d075fbc4a8546b3cedba3ecf2a52ff75ae/oxitest-1.0.0b2-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl";
-        sha256 = "0hpj81awiksklhk4ki7am5ln90nbjnn9vqsc4sw83rvjlnfr69wa";
-      };
-
-      # Build just the maturin wheel (no network needed)
+      # Build the maturin wheel from source
       oxi-nixinfra-wheel = pkgs.rustPlatform.buildRustPackage {
-        pname = "oxi-nixinfra";
-        version = "0.5.0";  # oxi-nixinfra
+        pname = "oxi-nixinfra-wheel";
+        inherit version;
         src = self;
         cargoLock.lockFile = ./Cargo.lock;
-        nativeBuildInputs = [ pkgs.maturin python ];
+        nativeBuildInputs = [
+          pkgs.maturin
+          python
+        ];
         buildPhase = ''
           maturin build --release --interpreter ${python}/bin/python3
         '';
@@ -35,8 +38,25 @@
         '';
         doCheck = false;
       };
+
+      # Install the wheel into a Python package with oxitest as a dependency
+      oxi-nixinfra = python.pkgs.buildPythonPackage {
+        pname = "oxi-nixinfra";
+        inherit version;
+        format = "other";
+        dontUnpack = true;
+        dontBuild = true;
+        nativeBuildInputs = [ python.pkgs.installer ];
+        propagatedBuildInputs = [ oxitest-pkg ];
+        installPhase = ''
+          ${python}/bin/python3 -m installer --destdir="$out" --prefix="" ${oxi-nixinfra-wheel}/*.whl
+        '';
+        pythonImportsCheck = [ "oxi_nixinfra" ];
+      };
     in
     {
+      packages.${system}.default = oxi-nixinfra;
+
       checks.${system}.integration = pkgs.testers.nixosTest {
         name = "oxi-nixinfra-integration";
 
@@ -46,47 +66,42 @@
           virtualisation = {
             memorySize = 2048;
             cores = 2;
-            # Share host nix store with VM for faster access
             writableStoreUseTmpfs = false;
           };
         };
 
-        testScript = ''
-          vm.start()
-          vm.wait_for_unit("sshd")
-          vm.wait_for_open_port(22)
+        testScript =
+          let
+            sitePackages = "${oxi-nixinfra}/${python.sitePackages}";
+            oxitestSitePackages = "${oxitest-pkg}/${python.sitePackages}";
+          in
+          ''
+            vm.start()
+            vm.wait_for_unit("sshd")
+            vm.wait_for_open_port(22)
 
-          # nix-daemon is socket-activated — start it explicitly so tests see it as "active"
-          vm.succeed("systemctl start nix-daemon")
+            # nix-daemon is socket-activated — start it explicitly so tests see it as "active"
+            vm.succeed("systemctl start nix-daemon")
 
-          # Copy wheels and project source into the VM
-          vm.succeed("mkdir -p /tmp/wheels")
-          vm.copy_from_host("${oxitest-wheel}", "/tmp/wheels/oxitest.whl")
-          vm.copy_from_host("${oxi-nixinfra-wheel}", "/tmp/oxi-nixinfra-wheel")
-          vm.copy_from_host("${self}", "/tmp/src")
+            # Copy project source into the VM
+            vm.copy_from_host("${self}", "/tmp/src")
 
-          # Rename oxitest wheel to its original filename (pip requires it for parsing)
-          vm.succeed("mv /tmp/wheels/oxitest.whl /tmp/wheels/${oxitest-wheel.name}")
+            # nixosTest VMs don't go through nixos-rebuild, so no generation links exist.
+            # Create one to match what every real NixOS install has.
+            vm.succeed("ln -s /run/current-system /nix/var/nix/profiles/system-1-link")
 
-          # Install both wheels to a writable directory (Nix store is read-only)
-          vm.succeed("pip install --no-deps --break-system-packages --target /tmp/site-packages /tmp/wheels/*.whl /tmp/oxi-nixinfra-wheel/*.whl 2>&1")
+            # Set up SSH key auth for root-to-localhost
+            vm.succeed('ssh-keygen -t ed25519 -f /root/.ssh/id_ed25519 -N "" 2>&1')
+            vm.succeed("cat /root/.ssh/id_ed25519.pub >> /root/.ssh/authorized_keys")
+            vm.succeed("chmod 600 /root/.ssh/authorized_keys")
+            vm.succeed("ssh-keyscan localhost >> /root/.ssh/known_hosts 2>/dev/null")
 
-          # nixosTest VMs don't go through nixos-rebuild, so no generation links exist.
-          # Create one to match what every real NixOS install has.
-          vm.succeed("ln -s /run/current-system /nix/var/nix/profiles/system-1-link")
+            # Run 1: local backend
+            vm.succeed("cd /tmp/src && PYTHONPATH=${sitePackages}:${oxitestSitePackages} python3 -m oxitest run tests/ 2>&1")
 
-          # Set up SSH key auth for root-to-localhost
-          vm.succeed('ssh-keygen -t ed25519 -f /root/.ssh/id_ed25519 -N "" 2>&1')
-          vm.succeed("cat /root/.ssh/id_ed25519.pub >> /root/.ssh/authorized_keys")
-          vm.succeed("chmod 600 /root/.ssh/authorized_keys")
-          vm.succeed("ssh-keyscan localhost >> /root/.ssh/known_hosts 2>/dev/null")
-
-          # Run 1: local backend
-          vm.succeed("cd /tmp/src && PYTHONPATH=/tmp/site-packages python3 -m oxitest run tests/ 2>&1")
-
-          # Run 2: SSH backend
-          vm.succeed("cd /tmp/src && PYTHONPATH=/tmp/site-packages OXITEST_HOST=ssh://root@localhost python3 -m oxitest run tests/ 2>&1")
-        '';
+            # Run 2: SSH backend
+            vm.succeed("cd /tmp/src && PYTHONPATH=${sitePackages}:${oxitestSitePackages} OXITEST_HOST=ssh://root@localhost python3 -m oxitest run tests/ 2>&1")
+          '';
       };
     };
 }
