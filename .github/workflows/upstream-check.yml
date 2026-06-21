@@ -1,0 +1,119 @@
+name: Upstream check
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'  # Monday 6am UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Static checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      VIRTUAL_ENV: ${{ github.workspace }}/.venv
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
+
+      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8  # stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32  # v2
+
+      - uses: taiki-e/install-action@b8cecb83565409bcc297b2df6e77f030b2a468d5  # v2
+        with:
+          tool: just
+
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78  # v7
+        with:
+          enable-cache: true
+
+      - name: Install code-quality tools
+        run: |
+          uv sync --group code-quality
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+
+      - name: Run checks
+        run: just check
+
+  test:
+    name: Rust unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
+
+      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8  # stable
+
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32  # v2
+
+      - name: Rust unit tests
+        run: cargo test
+
+  test-python:
+    name: Python tests (latest oxitest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      VIRTUAL_ENV: ${{ github.workspace }}/.venv
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
+
+      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8  # stable
+
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32  # v2
+
+      - uses: taiki-e/install-action@b8cecb83565409bcc297b2df6e77f030b2a468d5  # v2
+        with:
+          tool: just
+
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78  # v7
+        with:
+          enable-cache: true
+
+      - name: Install test dependencies with latest oxitest
+        run: |
+          uv sync --group test
+          uv pip install --upgrade oxitest
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+
+      - name: Show oxitest version
+        run: uv pip show oxitest
+
+      - name: Build and test
+        run: just build && just test
+
+  test-nixos:
+    name: NixOS VM tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
+
+      - uses: cachix/install-nix-action@8aa03977d8d733052d78f4e008a241fd1dbf36b3  # v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Run NixOS integration tests
+        run: nix build .#checks.x86_64-linux.integration --print-build-logs
+
+  required:
+    name: Upstream check (required)
+    needs: [check, test, test-python, test-nixos]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check results
+        shell: bash
+        run: |
+          if [[ "${{ needs.check.result }}" =~ ^(failure|cancelled)$ || "${{ needs.test.result }}" =~ ^(failure|cancelled)$ || "${{ needs.test-python.result }}" =~ ^(failure|cancelled)$ || "${{ needs.test-nixos.result }}" =~ ^(failure|cancelled)$ ]]; then
+            echo "One or more jobs failed or were cancelled"
+            exit 1
+          fi
+          echo "All jobs passed"
