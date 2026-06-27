@@ -27,6 +27,7 @@ theme:
 
 plugins:
   - search
+  - awesome-pages
   - git-revision-date-localized:
       enable_creation_date: true
       fallback_to_build_date: true
@@ -53,35 +54,3 @@ markdown_extensions:
   - tables
   - toc:
       permalink: true
-
-nav:
-  - Home: index.md
-  - Tutorials:
-    - Getting started: tutorials/getting-started.md
-  - How-to guides:
-    - Configure connection: how-to/configure-connection.md
-    - Test services: how-to/test-services.md
-    - Test files: how-to/test-files.md
-    - Test users: how-to/test-users.md
-    - Test Nix packages: how-to/test-nix-packages.md
-    - Use async tests: how-to/use-async-tests.md
-    - Migrate from testinfra: how-to/migrate-from-testinfra.md
-  - Reference:
-    - Configuration: reference/configuration.md
-    - Host: reference/host.md
-    - CommandResult: reference/command-result.md
-    - Modules:
-      - Service: reference/modules/service.md
-      - File: reference/modules/file.md
-      - User: reference/modules/user.md
-      - NixPackage: reference/modules/nix-package.md
-      - SystemInfo: reference/modules/system-info.md
-      - Environment: reference/modules/environment.md
-      - MountPoint: reference/modules/mountpoint.md
-      - Process: reference/modules/process.md
-      - Socket: reference/modules/socket.md
-      - Sysctl: reference/modules/sysctl.md
-  - Explanation:
-    - Why NixOS only: explanation/why-nixos-only.md
-    - Architecture: explanation/architecture.md
-    - Async-first design: explanation/async-first-design.md

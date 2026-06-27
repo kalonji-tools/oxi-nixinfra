@@ -1,0 +1,5 @@
+nav:
+  - Configuration: configuration.md
+  - Host: host.md
+  - CommandResult: command-result.md
+  - Modules: modules

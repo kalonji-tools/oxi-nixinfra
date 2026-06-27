@@ -1,0 +1,11 @@
+nav:
+  - Service: service.md
+  - File: file.md
+  - User: user.md
+  - NixPackage: nix-package.md
+  - SystemInfo: system-info.md
+  - Environment: environment.md
+  - MountPoint: mountpoint.md
+  - Process: process.md
+  - Socket: socket.md
+  - Sysctl: sysctl.md
