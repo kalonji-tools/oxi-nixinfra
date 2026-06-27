@@ -1,0 +1,8 @@
+nav:
+  - Configure connection: configure-connection.md
+  - Test services: test-services.md
+  - Test files: test-files.md
+  - Test users: test-users.md
+  - Test Nix packages: test-nix-packages.md
+  - Use async tests: use-async-tests.md
+  - Migrate from testinfra: migrate-from-testinfra.md

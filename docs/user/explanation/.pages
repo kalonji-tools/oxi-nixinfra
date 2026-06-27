@@ -1,0 +1,4 @@
+nav:
+  - Why NixOS only: why-nixos-only.md
+  - Architecture: architecture.md
+  - Async-first design: async-first-design.md

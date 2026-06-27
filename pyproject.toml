@@ -44,6 +44,7 @@ test = [{ include-group = "build" }, "oxitest>=1.0.0b2"]
 code-quality = ["ruff>=0.11", "codespell>=2"]
 docs = [
     "mkdocs-material>=9",
+    "mkdocs-awesome-pages-plugin>=2.10",
     "mkdocs-minify-plugin>=0.8",
     "mkdocs-git-revision-date-localized-plugin>=1.2",
 ]
