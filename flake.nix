@@ -4,6 +4,7 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     oxitest.url = "github:kalonji-tools/oxitest";
+    oxitest.inputs.nixpkgs.follows = "nixpkgs";
   };
 
   outputs =
