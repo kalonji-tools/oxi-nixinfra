@@ -20,7 +20,7 @@ plugins = ["oxi_nixinfra.plugin"]
 markers = ["nixos: test requires NixOS"]
 strict = "abort"
 
-[tool.oxitest.plugin_settings.oxi_nixinfra.plugin]
+[tool.oxitest.plugin_settings."oxi_nixinfra.plugin"]
 
 [tool.ruff]
 target-version = "py312"
@@ -40,7 +40,7 @@ skip = "target,.venv,Cargo.lock,.git,graphify-out,*.min.js,*/docs/site/*,*/docs/
 
 [dependency-groups]
 build = ["maturin>=1.0,<2.0"]
-test = [{ include-group = "build" }, "oxitest>=1.0.0b2"]
+test = [{ include-group = "build" }, "oxitest>=2.4.0"]
 code-quality = ["ruff>=0.11", "codespell>=2"]
 docs = [
     "mkdocs-material>=9",
