@@ -14,9 +14,9 @@ def test_nix_is_installed(host: Fixture[Host]):
 
 @oxitest.mark.nixos
 def test_coreutils_version(host: Fixture[Host]):
-    version = host.nix_package("coreutils-full").version()
+    version = host.nix_package("coreutils").version()
     assert version is not None, (
-        "coreutils-full should have a parseable version from its store path"
+        "coreutils should have a parseable version from its store path"
     )
     assert "." in version, (
         "version should be semver-like (e.g. 9.8)"

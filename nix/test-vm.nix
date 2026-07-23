@@ -2,6 +2,11 @@
 # Root with empty password — ephemeral, destroyed after test run.
 { pkgs, ... }:
 {
+  # Skip building all system documentation. python312-doc's sphinx build has
+  # been broken by a docutils 0.22.4 regression on nixos-unstable, and the
+  # docs aren't consumed by any test path.
+  documentation.enable = false;
+
   services.openssh = {
     enable = true;
     settings = {
