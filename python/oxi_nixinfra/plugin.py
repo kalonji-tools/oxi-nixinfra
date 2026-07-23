@@ -10,8 +10,7 @@ def oxitest_plugin(*, config):
     from collections.abc import Callable
     from typing import Any
 
-    from oxitest._bridge.result import SkippedResult
-    from oxitest.plugin import Plugin
+    from oxitest.plugin import Plugin, skipped
 
     from oxi_nixinfra import Host, is_nixos
 
@@ -22,9 +21,11 @@ def oxitest_plugin(*, config):
         def marker(self) -> str:
             return "nixos"
 
-        def wrap(self, test_fn: Callable[[], Any], marker_args: dict[str, Any]) -> Any:
+        def wrap(
+            self, *, test_fn: Callable[[], Any], marker_args: dict[str, Any]
+        ) -> Any:
             if not is_nixos():
-                return SkippedResult(message="requires NixOS")
+                return skipped(message="requires NixOS")
             return test_fn()
 
     class HostProvider:
@@ -42,13 +43,13 @@ def oxitest_plugin(*, config):
         def fixture_type(self) -> type:
             return Host
 
-        def create(self, ctx: object) -> object:
+        def create(self, *, ctx: object) -> object:
             return Host._from_config(self._host, ssh_config=self._ssh_config)
 
-        def teardown(self, value: object) -> None:
+        def teardown(self, *, value: object) -> None:
             pass
 
     return Plugin(
-        fixture_providers=[HostProvider(config.host, config.ssh_config)],
-        execution_wrappers=[NixosWrapper()],
+        fixture_providers=(HostProvider(config.host, config.ssh_config),),
+        execution_wrappers=(NixosWrapper(),),
     )
