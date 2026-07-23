@@ -1,6 +1,20 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+## [0.6.0] - 2026-07-23
+
+### Bug Fixes
+
+
+- Unblock NixOS VM tests (#170, #172)
+
+### Features
+
+
+- Add cross-repo CI trigger on oxitest releases (#140)
+- Export packages.default in flake.nix (#141)
+- Port plugin.py to oxitest 2.4.0 public API (#165)
+
 ## [0.5.0] - 2026-06-20
 
 ### Features
